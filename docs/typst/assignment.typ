@@ -5,13 +5,16 @@
 
 #set page(
   paper: "us-letter",
-  margin: (x: 0.78in, y: 0.7in),
+  margin: (x: 0.75in, y: 0.72in),
   header: context {
     if counter(page).get().first() > 1 [
       #set text(size: 8.5pt, fill: muted)
-      CSI 5550 -- Visual Computing #h(1fr) From Pixels to Predictions
-      #v(-0.4em)
-      #line(length: 100%, stroke: 0.4pt + rulecol)
+      #stack(
+        dir: ttb,
+        spacing: 4pt,
+        [CSI 5550 -- Visual Computing #h(1fr) From Pixels to Predictions],
+        line(length: 100%, stroke: 0.4pt + rulecol),
+      )
     ]
   },
   footer: context [
@@ -21,37 +24,52 @@
 )
 
 #set text(font: "New Computer Modern", size: 10.2pt, fill: black)
-#set par(leading: 0.56em, spacing: 0.65em, justify: true)
+#set par(leading: 0.62em, spacing: 0.95em, justify: true)
+#set list(indent: 0.5em, body-indent: 0.5em, spacing: 0.7em)
+#set enum(indent: 0.5em, body-indent: 0.5em, spacing: 0.7em)
 
-#show heading.where(level: 1): it => {
-  v(0.5em)
-  block(breakable: false, [
-    #set text(size: 13pt, weight: "bold", fill: accent)
-    #it
-    #v(-0.55em)
-    #line(length: 100%, stroke: 0.6pt + rulecol)
-  ])
-  v(0.15em)
-}
+#show math.equation.where(block: true): set block(above: 0.95em, below: 0.95em)
+#show figure: set block(above: 1.0em, below: 1.0em, breakable: false)
+#set figure(gap: 0.5em)
+#show figure.caption: set text(size: 9pt, fill: muted)
 
-#show heading.where(level: 2): it => {
-  v(0.35em)
-  block(breakable: false, text(size: 11pt, weight: "bold", fill: black, it))
-}
+#show heading.where(level: 1): it => block(
+  sticky: true,
+  breakable: false,
+  above: 1.45em,
+  below: 0.85em,
+  width: 100%,
+)[
+  #set text(size: 12.5pt, weight: "bold", fill: accent)
+  #stack(
+    dir: ttb,
+    spacing: 4pt,
+    it,
+    line(length: 100%, stroke: 0.6pt + rulecol),
+  )
+]
 
-#show raw.where(block: false): box.with(
-  fill: codebg,
-  inset: (x: 3pt, y: 0pt),
-  outset: (y: 2.5pt),
-  radius: 2pt,
-)
+#show heading.where(level: 2): it => block(
+  sticky: true,
+  breakable: false,
+  above: 1.2em,
+  below: 0.6em,
+  width: 100%,
+)[
+  #set text(size: 10.8pt, weight: "bold", fill: black)
+  #it
+]
+
+#show raw.where(block: false): set text(size: 9.6pt)
 
 #show raw.where(block: true): block.with(
   fill: codebg,
   stroke: 0.5pt + rulecol,
-  inset: 8pt,
+  inset: (x: 10pt, y: 8pt),
   radius: 3pt,
   width: 100%,
+  above: 0.85em,
+  below: 0.85em,
 )
 
 #set heading(numbering: (..nums) => {
@@ -59,14 +77,19 @@
   if n.len() == 1 { str(n.at(0)) + "." } else if n.len() == 2 { str(n.at(0)) + "." + str(n.at(1)) }
 })
 
-#align(center)[
-  #text(size: 9pt, weight: "bold", fill: accent)[CSI 5550 -- VISUAL COMPUTING #h(0.8em) | #h(0.8em) LABORATORY ASSIGNMENT] \
-  #v(-0.2em)
-  #text(size: 20pt, weight: "bold")[From Pixels to Predictions] \
-  #v(-0.3em)
-  #text(size: 10.5pt, fill: muted)[Measuring CNN Sensitivity to Classical Image Processing Operators]
+#block(below: 1.1em, width: 100%)[
+  #align(center)[
+    #stack(
+      dir: ttb,
+      spacing: 6pt,
+      text(size: 9pt, weight: "bold", fill: accent)[CSI 5550 -- VISUAL COMPUTING #h(0.8em) | #h(0.8em) LABORATORY ASSIGNMENT],
+      text(size: 20pt, weight: "bold")[From Pixels to Predictions],
+      text(size: 10.5pt, fill: muted)[Measuring CNN Sensitivity to Classical Image Processing Operators],
+    )
+  ]
+  #v(6pt)
+  #line(length: 100%, stroke: 0.8pt + rulecol)
 ]
-#line(length: 100%, stroke: 0.8pt + rulecol)
 
 = Overview and Experimental Setup
 
@@ -105,10 +128,20 @@ Subsample spatially by keeping every $s$-th row and column (`images[:, :, ::fact
 
 *Design note:* Anti-aliasing smoothing before subsampling is intentionally omitted so you can observe aliasing and high-frequency detail loss directly. *Evaluated settings:* $s in {1, 2, 4, 8, 16}$.
 
+#figure(
+  image("figures/demo_sample_image.png", width: 100%),
+  caption: [Input image and expected `sample_image` outputs for factors $s in {2, 4, 8, 16}$.],
+)
+
 == B. Intensity Quantization (`quantize`)
 Reduce per-channel intensity precision to $2^b$ uniformly spaced levels in $[0, 1]$ for integer bit depth $b in {1, 2, dots, 8}$:
 $ Q_b (x) = (op("round")((2^b - 1) x)) / (2^b - 1). $
 This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 8-bit image samples when $b = 8$. *Evaluated settings:* $b in {8, 6, 4, 3, 2, 1}$ bits/channel.
+
+#figure(
+  image("figures/demo_quantize.png", width: 100%),
+  caption: [Input image and expected `quantize` outputs for $b in {6, 4, 2, 1}$ bits per channel.],
+)
 
 == C. Affine Geometric Transformation (`affine_rotation`)
 Rotate every image in the batch counterclockwise by `angle` $theta$ (in degrees) about its center using *inverse coordinate mapping* and bilinear interpolation, keeping the $(H, W)$ canvas fixed and filling outside regions with neutral gray ($0.5$). When $theta = 0$, return a clone of `images`. Do not replace this exercise with a ready-made rotation helper.
@@ -120,20 +153,47 @@ Convert $(x_s, y_s)$ to normalized `F.grid_sample` coordinates in $[-1, 1]$ for 
 $ g_x = (2(x_s + 0.5)) / W - 1, quad g_y = (2(y_s + 0.5)) / H - 1. $
 To obtain the gray ($0.5$) fill outside the image boundary while using `padding_mode="zeros"`, sample `images - 0.5` with `mode="bilinear"` and `align_corners=False`, add `0.5` back, and clamp to $[0, 1]$. *Evaluated settings:* $theta in {-45 degree, -30 degree, -15 degree, 0 degree, 15 degree, 30 degree, 45 degree}$.
 
+#figure(
+  image("figures/demo_affine_rotation.png", width: 100%),
+  caption: [Input image and expected `affine_rotation` outputs for $theta in {-45 degree, -20 degree, +20 degree, +45 degree}$.],
+)
+
 == D1. Image Histogram (`image_histogram`)
 Compute the arithmetic-mean grayscale intensity $I = (R + G + B) / 3$ for each pixel, and assign bin indices $k = op("round")(255 I) in {0, 1, dots, 255}$. Return a `torch.long` tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H times W$). Looping over the batch dimension $B$ with 1-D `torch.bincount(..., minlength=256)` is fine. You will use this function to plot input, equalized, and twice-equalized histograms on shared axes.
 
+#figure(
+  image("figures/demo_image_histogram.png", width: 88%),
+  caption: [Input RGB image, mean grayscale intensity $I = (R+G+B)/3$, and expected 256-bin histogram counts from `image_histogram`.],
+)
+
 == D2. Histogram Equalization (`histogram_equalize`)
 Redistribute grayscale intensities independently for each image using its 256-bin histogram (you may call `image_histogram`) and cumulative distribution $op("CDF")(k) = sum_(j=0)^k h(j)$. Let $op("CDF")_min$ be the cumulative count of the first occupied bin (smallest $k$ with $h(k) > 0$). If all pixels occupy a single bin ($op("CDF")(255) - op("CDF")_min = 0$), preserve the constant grayscale intensity unchanged; otherwise map each pixel's bin $k$ through
-$ T(k) = (op("CDF")(k) - op("CDF")_min) / (H W - op("CDF")_min) = (op("CDF")_"norm"(k) - op("CDF")_"norm,min") / (1 - op("CDF")_"norm,min"), $
+$ T(k) = (op("CDF")(k) - op("CDF")_min) / (H W - op("CDF")_min) = (op("CDF")_"norm" (k) - op("CDF")_"norm,min") / (1 - op("CDF")_"norm,min"), $
 where $op("CDF")_"norm" = op("CDF") / (H W)$ is the normalized CDF, clamped to $[0, 1]$. Replicate the equalized intensity across all three RGB channels so the output shape is $(B, 3, H, W)$.
 
 *Experimental control:* Because equalization removes color as well as changing contrast, Section 4 evaluates both `grayscale` (arithmetic RGB mean replicated to 3 channels) and `equalized` to isolate contrast redistribution from color removal.
+
+#figure(
+  stack(
+    dir: ttb,
+    spacing: 6pt,
+    image("figures/demo_histogram_equalize.png", width: 86%),
+    image("figures/histogram_comparison.png", width: 94%),
+  ),
+  caption: [Top: input image, expected `histogram_equalize` output, and twice-equalized output. Bottom: corresponding 256-bin intensity histograms.],
+)
 
 == E. Gaussian Smoothing (`gaussian_smooth`)
 Attenuate high-frequency detail using an isotropic 2-D Gaussian kernel with standard deviation `sigma` $sigma >= 0$ (in pixels). When $sigma = 0$, return a clone of `images`. Otherwise set kernel radius $r = ceil(3 sigma)$ (raising `ValueError` if $r >= min(H, W)$), evaluate
 $ K(x, y) = exp(- (x^2 + y^2) / (2 sigma^2)), quad x, y in {-r, dots, r}, $
 and normalize so $sum_(x, y) K(x, y) = 1$. Pad borders via `F.pad(images, (r, r, r, r), mode="reflect")` and filter each RGB channel independently with grouped `F.conv2d(..., groups=channels)`, clamping to $[0, 1]$. *Evaluated settings:* $sigma in {0, 0.5, 1, 2, 4}$ pixels.
+
+#figure(
+  image("figures/demo_gaussian_smooth.png", width: 100%),
+  caption: [Input image and expected `gaussian_smooth` outputs for $sigma in {0.5, 1, 2, 4}$ pixels.],
+)
+
+#pagebreak()
 
 == F. Laplacian Sharpening (`laplacian_sharpen`)
 Emphasize rapid intensity transitions using the discrete four-neighbor Laplacian kernel:
@@ -141,6 +201,11 @@ $ L = mat(0, 1, 0; 1, -4, 1; 0, 1, 0). $
 For nonnegative sharpening strength `amount` $a >= 0$ ($a = 0$ returns a clone), pad `images` by $1$ pixel on all sides using `mode="reflect"`, filter each RGB channel independently with grouped `F.conv2d(..., groups=channels)` to obtain the *signed* response $nabla^2 f$, and compute
 $ g = op("clamp")(f - a nabla^2 f, 0, 1). $
 Keep the signed response before subtraction (do not take $|nabla^2 f|$) and clip only after subtracting from the original image. *Evaluated settings:* $a in {0, 0.25, 0.5, 1, 2}$.
+
+#figure(
+  image("figures/demo_laplacian_sharpen.png", width: 100%),
+  caption: [Input image and expected `laplacian_sharpen` outputs for sharpening amounts $a in {0.25, 0.5, 1, 2}$.],
+)
 
 = Evaluation, Analysis, and Discussion
 
