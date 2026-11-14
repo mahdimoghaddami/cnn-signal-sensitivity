@@ -237,8 +237,8 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path):
         for cell in document.cells:
             if cell.cell_type == "code":
                 compile(cell.source, "<notebook cell>", "exec")
-    assert sum("exercise" in cell.metadata.get("tags", []) for cell in starter.cells) == 4
-    assert sum("raise NotImplementedError" in cell.source for cell in starter.cells) == 4
+    assert sum("exercise" in cell.metadata.get("tags", []) for cell in starter.cells) == 5
+    assert sum("raise NotImplementedError" in cell.source for cell in starter.cells) == 5
     assert not any("raise NotImplementedError" in cell.source for cell in solution.cells)
     prose = [cell.source for cell in starter.cells if cell.cell_type == "markdown"]
     assert sum(len(text.split()) for text in prose) < 800
@@ -395,7 +395,7 @@ def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
             for index, cell in enumerate(document.cells)
             if "exercise" in cell.metadata.get("tags", [])
         ]
-        assert len(exercises) == 4
+        assert len(exercises) == 5
         for index, cell in exercises:
             function = ast.parse(cell.source).body[0]
             assert all(argument.annotation is not None for argument in function.args.args)
@@ -408,4 +408,31 @@ def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
                 for node in ast.walk(ast.parse(demo.source))
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
             ]
-            assert function.name in calls and "show_input_output" in calls
+            assert function.name in calls
+            if function.name != "image_histogram":
+                assert "show_input_output" in calls
+
+
+def test_image_histograms_and_equalization_reuse(monkeypatch):
+    from instructor import reference
+
+    checks.check_image_histogram(reference.image_histogram)
+    color = torch.tensor([1.0, 0.0, 0.0]).reshape(1, 3, 1, 1)
+    counts = reference.image_histogram(color)
+    assert counts.shape == (1, 256) and counts[0, 85] == 1 and counts.sum() == 1
+    images = torch.rand(2, 3, 7, 9)
+    original = images.clone()
+    counts = reference.image_histogram(images)
+    assert counts.dtype == torch.long and counts.device == images.device
+    assert counts.sum(1).tolist() == [63, 63]
+    torch.testing.assert_close(images, original)
+    calls = []
+    histogram_function = reference.image_histogram
+
+    def record_histogram(batch):
+        calls.append(batch.shape)
+        return histogram_function(batch)
+
+    monkeypatch.setattr(reference, "image_histogram", record_histogram)
+    reference.histogram_equalize(images)
+    assert calls == [images.shape]

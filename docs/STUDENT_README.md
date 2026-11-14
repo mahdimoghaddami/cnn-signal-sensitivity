@@ -12,7 +12,7 @@ Use the project's .venv notebook kernel. The project uses Python 3.15 and the co
 PyTorch environment; it automatically selects GPU or CPU for inference.
 Preparation downloads Imagenette and the already trained ResNet-18 weights once.
 
-Implement the four exercise functions, then run the comparisons that call those functions.
+Implement the four operators and the histogram helper, then run their comparisons.
 The lab always uses the same 200 images and saves to outputs/lab/; reruns replace those
 exports. Copy the folder if you want to preserve an earlier result.
 

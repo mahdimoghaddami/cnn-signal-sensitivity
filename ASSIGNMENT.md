@@ -33,6 +33,8 @@ without changing the input in place. Each notebook exercise has a public check.
 4. **Histogram equalization:** use arithmetic-mean RGB intensity, a 256-bin histogram,
    and its cumulative distribution. Normalize by the first occupied CDF value, leaving
    a constant-intensity image unchanged. Return the intensity image in three channels.
+   First implement image_histogram to return integer counts shaped (B,256), one row per
+   image. Reuse it inside histogram_equalize and to plot the input and output histograms.
 
 These four operations cover different image properties: spatial resolution, intensity
 resolution, spatial arrangement, and intensity distribution. Every evaluated transformation

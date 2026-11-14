@@ -75,3 +75,13 @@ def check_histogram(function):
     constant = torch.full((1, 3, 4, 4), 0.4)
     torch.testing.assert_close(function(constant), constant)
     print("Histogram equalization checks passed.")
+
+
+def check_image_histogram(function):
+    values = torch.tensor([[0, 0, 0.5, 1.0], [1.0, 1.0, 1.0, 1.0]])
+    images = values.reshape(2, 1, 2, 2).expand(2, 3, 2, 2)
+    expected = torch.zeros(2, 256, dtype=torch.long)
+    expected[0, 0], expected[0, 128], expected[0, 255] = 2, 1, 1
+    expected[1, 255] = 4
+    torch.testing.assert_close(function(images), expected)
+    print("Image histogram checks passed.")

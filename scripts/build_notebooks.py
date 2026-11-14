@@ -179,17 +179,60 @@ def notebook(solution=False):
     demonstrate("affine_rotation", ", angle=30.0", "Output: 30-degree counterclockwise rotation")
     code("checks.check_affine(affine_rotation)")
     exercise(
+        "image_histogram",
+        "(images: torch.Tensor) -> torch.Tensor",
+        """
+    ### D1. Image histogram
+    A histogram counts how many pixels have each intensity level.
+    Use mean-RGB intensity and round intensity*255 into 256 bins.
+    Return a separate row of counts for each image; do not combine the batch.
+    You will reuse this function for equalization and plotting.
+    """,
+    )
+    code(
+        """
+    histogram_input = case_images[1:2].clone()
+    counts = image_histogram(histogram_input)[0]
+    fig, axes = plt.subplots(1, 2, figsize=(9, 4), layout="constrained")
+    axes[0].imshow(histogram_input[0].permute(1, 2, 0).cpu())
+    axes[0].set_title("Input image")
+    axes[0].axis("off")
+    axes[1].bar(range(256), counts.cpu().numpy(), width=1)
+    axes[1].set(title="Input intensity histogram", xlabel="Intensity level", ylabel="Pixel count", xlim=(0, 255))
+    fig.savefig(OUTPUT / "demo_image_histogram.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["demonstration", "image_histogram"],
+    )
+    code("checks.check_image_histogram(image_histogram)")
+    exercise(
         "histogram_equalize",
         "(images: torch.Tensor) -> torch.Tensor",
         """
-    ### D. Histogram equalization
+    ### D2. Histogram equalization
     Histogram equalization redistributes intensity levels to spread contrast across their range.
     Convert RGB to intensity using its channel mean. For each image, compute a 256-bin
     histogram and cumulative distribution. Map intensities using (CDF−CDF_min)/(1−CDF_min).
+    Use your image_histogram function to obtain the counts.
     Leave constant-intensity images unchanged. Replicate the result into three channels.
     """,
     )
     demonstrate("histogram_equalize", "", "Output: histogram-equalized grayscale")
+    code(
+        """
+    input_counts = image_histogram(demo_input)[0]
+    output_counts = image_histogram(demo_output)[0]
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.5), sharex=True, sharey=True, layout="constrained")
+    for ax, counts, title in zip(axes, [input_counts, output_counts],
+                                ["Input intensity histogram", "Equalized output histogram"]):
+        ax.bar(range(256), counts.cpu().numpy(), width=1)
+        ax.set(title=title, xlabel="Intensity level", xlim=(0, 255))
+    axes[0].set_ylabel("Pixel count")
+    fig.savefig(OUTPUT / "histogram_comparison.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["histogram-comparison"],
+    )
     code("checks.check_histogram(histogram_equalize)")
     md("""
     ## 4. Compare your results

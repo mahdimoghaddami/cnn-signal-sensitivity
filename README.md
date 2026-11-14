@@ -18,7 +18,8 @@ Select the project's .venv interpreter when using another notebook editor.
 
 There is one image set, one workflow, and one output folder: outputs/lab/.
 No mode, run label, interaction challenge, or feature-map analysis is required.
-The four exercise stubs intentionally stop execution until students complete them.
+The five exercise stubs (four operators plus a histogram helper) intentionally stop
+execution until students complete them.
 The instructor notebook runs end to end. Full instructions are in ASSIGNMENT.md.
 
 ## Model and environment
@@ -36,7 +37,7 @@ backups remain in place. Rerunning overwrites the current outputs/lab/ exports.
 ## Files
 
 - ASSIGNMENT.md: exercise specifications and grading.
-- notebooks/: student notebook with four exercises and their result comparisons.
+- notebooks/: student notebook with operator exercises and their result comparisons.
 - instructor/: solution notebook, reference implementations, and teaching notes.
 - src/cnn_signal_sensitivity/: data loading, model, evaluation, and plotting utilities.
 - scripts/build_notebooks.py: generates notebooks and archives changed existing copies.

@@ -70,6 +70,24 @@ def affine_rotation(images: torch.Tensor, angle: float) -> torch.Tensor:
     ).clamp(0, 1)
 
 
+def image_histogram(images: torch.Tensor) -> torch.Tensor:
+    """Count pixels at each of 256 intensity levels, separately for every image.
+
+    Args:
+        images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
+            B is the number of images; H and W are height and width.
+            A single image must keep its batch dimension: (1, 3, H, W).
+
+    Returns:
+        Integer pixel counts shaped (B, 256), on the input device.
+        Use the RGB channel mean as intensity and round intensity*255
+        to select bins 0 through 255. Each histogram sums to H*W.
+        The input is not modified.
+    """
+    bins = torch.round(images.mean(dim=1) * 255).long()
+    return torch.stack([torch.bincount(image.flatten(), minlength=256) for image in bins])
+
+
 def histogram_equalize(images: torch.Tensor) -> torch.Tensor:
     """Redistribute grayscale intensities using each image's cumulative histogram.
 
@@ -84,10 +102,10 @@ def histogram_equalize(images: torch.Tensor) -> torch.Tensor:
         equalized independently, and the input is not modified.
     """
     gray = images.mean(dim=1, keepdim=True)
+    histograms = image_histogram(images).to(images.dtype)
     output = []
-    for image in gray:
+    for image, histogram in zip(gray, histograms, strict=True):
         bins = torch.round(image * 255).long()
-        histogram = torch.bincount(bins.flatten(), minlength=256).to(images.dtype)
         cdf = histogram.cumsum(0)
         minimum = cdf[histogram > 0][0]
         denominator = cdf[-1] - minimum
