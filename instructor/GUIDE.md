@@ -14,8 +14,8 @@ feature-map analysis. Student code and evaluated operators match exactly.
   PyTorch grid_sample. The student builds the grid. Borders use fixed gray fill.
 - Histogram equalization: per-image 256-bin intensity histogram and normalized CDF.
   A grayscale control separates color removal from equalization. Constant images stay constant.
-  Students first implement image_histogram, reuse it inside equalization, and plot
-  the input and output histograms using identical axes. Counts are per image, not per batch.
+  Students also implement image_histogram to plot the input and output histograms using
+  identical axes. Equalization computes its own histogram independently. Counts are per image.
 
 All five function implementations appear directly in the solution notebook. The public checks
 follow an immediate side-by-side input/output demonstration for each operator. Both

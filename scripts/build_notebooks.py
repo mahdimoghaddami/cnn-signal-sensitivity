@@ -186,7 +186,7 @@ def notebook(solution=False):
     A histogram counts how many pixels have each intensity level.
     Use mean-RGB intensity and round intensity*255 into 256 bins.
     Return a separate row of counts for each image; do not combine the batch.
-    You will reuse this function for equalization and plotting.
+    Use this function to plot the histograms before and after equalization.
     """,
     )
     code(
@@ -213,7 +213,7 @@ def notebook(solution=False):
     Histogram equalization redistributes intensity levels to spread contrast across their range.
     Convert RGB to intensity using its channel mean. For each image, compute a 256-bin
     histogram and cumulative distribution. Map intensities using (CDF−CDF_min)/(1−CDF_min).
-    Use your image_histogram function to obtain the counts.
+    Compute the histogram inside this function, independently of image_histogram.
     Leave constant-intensity images unchanged. Replicate the result into three channels.
     """,
     )

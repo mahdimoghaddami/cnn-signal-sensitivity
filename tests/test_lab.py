@@ -413,7 +413,7 @@ def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
                 assert "show_input_output" in calls
 
 
-def test_image_histograms_and_equalization_reuse(monkeypatch):
+def test_image_histograms_and_independent_equalization(monkeypatch):
     from instructor import reference
 
     checks.check_image_histogram(reference.image_histogram)
@@ -426,13 +426,8 @@ def test_image_histograms_and_equalization_reuse(monkeypatch):
     assert counts.dtype == torch.long and counts.device == images.device
     assert counts.sum(1).tolist() == [63, 63]
     torch.testing.assert_close(images, original)
-    calls = []
-    histogram_function = reference.image_histogram
+    def unavailable_histogram(batch):
+        raise AssertionError("Equalization must not call image_histogram.")
 
-    def record_histogram(batch):
-        calls.append(batch.shape)
-        return histogram_function(batch)
-
-    monkeypatch.setattr(reference, "image_histogram", record_histogram)
-    reference.histogram_equalize(images)
-    assert calls == [images.shape]
+    monkeypatch.setattr(reference, "image_histogram", unavailable_histogram)
+    checks.check_histogram(reference.histogram_equalize)

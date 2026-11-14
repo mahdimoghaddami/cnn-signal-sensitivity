@@ -102,10 +102,10 @@ def histogram_equalize(images: torch.Tensor) -> torch.Tensor:
         equalized independently, and the input is not modified.
     """
     gray = images.mean(dim=1, keepdim=True)
-    histograms = image_histogram(images).to(images.dtype)
     output = []
-    for image, histogram in zip(gray, histograms, strict=True):
+    for image in gray:
         bins = torch.round(image * 255).long()
+        histogram = torch.bincount(bins.flatten(), minlength=256).to(images.dtype)
         cdf = histogram.cumsum(0)
         minimum = cdf[histogram > 0][0]
         denominator = cdf[-1] - minimum
