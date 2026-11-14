@@ -1,2 +1,10 @@
 .venv
 playground
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+data/
+outputs/
+dist/

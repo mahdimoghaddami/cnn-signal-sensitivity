@@ -1,19 +1,23 @@
 [project]
 name = "cnn-signal-sensitivity"
 version = "0.1.0"
-description = "Add your description here"
+description = "A graduate visual computing lab on CNN sensitivity to classical image transformations"
 readme = "README.md"
 authors = [
     { name = "Mahdi Moghaddami", email = "moghaddami@oakland.edu" }
 ]
 requires-python = ">=3.15"
 dependencies = [
+    "matplotlib>=3.10",
+    "numpy>=2.2",
+    "pandas>=2.2",
+    "pillow>=11",
     "torch>=2.15.0",
     "torchvision>=0.29.2",
 ]
 
 [project.scripts]
-cnn-signal-sensitivity = "cnn_signal_sensitivity:main"
+cnn-signal-sensitivity = "cnn_signal_sensitivity.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
@@ -32,7 +36,24 @@ torchvision = [
   { index = "pytorch-cu132", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
+# PyYAML has no CPython 3.15 Windows wheel yet. Its pure-Python implementation
+# avoids requiring a local C compiler for the Jupyter dependency chain.
+[tool.uv.extra-build-variables]
+pyyaml = { PYYAML_FORCE_LIBYAML = "0" }
+
 [dependency-groups]
 dev = [
     "ipykernel>=7.4.0",
+    "jupyterlab>=4.4",
+    "nbclient>=0.10",
+    "nbformat>=5.10",
+    "pytest>=8.3",
+    "ruff>=0.11",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
