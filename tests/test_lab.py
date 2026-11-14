@@ -380,7 +380,10 @@ def test_notebook_only_evaluates_the_exercise_functions():
         "## 6.",
     ]:
         assert removed not in text
-    assert "lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)" in text
+    assert (
+        "experiments.lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)"
+        in text
+    )
     assert "already trained on ImageNet" in text
 
 

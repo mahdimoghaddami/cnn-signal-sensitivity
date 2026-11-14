@@ -1,7 +1,9 @@
-"""Execute the instructor notebook with the project interpreter; preserve source notebooks."""
+"""Execute the instructor notebook and save verified outputs into it, keeping a backup."""
 
 import os
+import shutil
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import nbformat
@@ -44,6 +46,11 @@ def main():
     ]
     if errors:
         raise RuntimeError(f"Notebook contains errors: {errors}")
+    backup_dir = ROOT / "outputs/notebook_backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+    shutil.copy2(source, backup_dir / f"{source.stem}_{stamp}.ipynb")
+    nbformat.write(notebook, source)
     print(
         f"Executed {sum(cell.cell_type == 'code' for cell in notebook.cells)} code cells: {destination}"
     )

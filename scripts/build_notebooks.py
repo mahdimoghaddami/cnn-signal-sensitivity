@@ -87,10 +87,9 @@ def notebook(solution=False):
     sys.path.insert(0, str(ROOT / "src"))
     os.environ["TORCH_HOME"] = str(ROOT / "data/models")
 
-    from cnn_signal_sensitivity import checks
+    from cnn_signal_sensitivity import checks, experiments
     from cnn_signal_sensitivity.data import CachedInputs, case_studies, load_lab_data
     from cnn_signal_sensitivity.evaluation import predict, run_suite, seed_everything
-    from cnn_signal_sensitivity.experiments import lab_conditions
     from cnn_signal_sensitivity.models import choose_device, load_classifier
     from cnn_signal_sensitivity.plotting import (
         image_grid,
@@ -313,7 +312,8 @@ def notebook(solution=False):
     Rotation can also crop objects; inspect the images before interpreting accuracy changes.
     """)
     code("""
-    conditions = lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)
+    reload(experiments)  # pick up updated rotation settings in an existing kernel
+    conditions = experiments.lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)
     selected = [c for c in conditions if c.key in
                 {'clean', 'sampling_8', 'quantization_2', 'rotation_-45', 'rotation_45', 'grayscale', 'equalized'}]
     fig = transformation_gallery(model, case_images[:2], case_labels[:2], case_ids[:2], selected)
