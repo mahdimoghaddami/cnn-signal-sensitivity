@@ -346,7 +346,8 @@ def test_four_lab_operators_and_checks():
     checks.check_affine(affine_rotation)
     checks.check_histogram(histogram_equalize)
     conditions = lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)
-    assert len(conditions) == len({c.key for c in conditions}) == 18
+    assert len(conditions) == len({c.key for c in conditions}) == 20
+    assert {"rotation_-45", "rotation_45"} <= {c.key for c in conditions}
     assert {c.family for c in conditions} == {
         "clean",
         "sampling",
@@ -410,10 +411,7 @@ def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
             ]
             assert function.name in calls
-            if function.name == "affine_rotation":
-                assert "show_input_output" in calls
-            else:
-                assert "imshow" in demo.source
+            assert "imshow" in demo.source
 
 
 def test_expanded_instructor_demonstrations():
@@ -426,6 +424,7 @@ def test_expanded_instructor_demonstrations():
     }
     assert "factors = [1, 2, 4, 8]" in demos["sample_image"]
     assert "bit_depths = [1, 2, 4, 8]" in demos["quantize"]
+    assert "angles = [-45, -20, 20, 45]" in demos["affine_rotation"]
     assert "grayscale_input" in demos["image_histogram"]
     assert "histogram_equalize(demo_output)" in demos["histogram_equalize"]
     comparison = next(

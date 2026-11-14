@@ -53,7 +53,7 @@ def lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize):
                 partial(quantize, bits=bits),
             )
         )
-    for angle in [-30, -15, 0, 15, 30]:
+    for angle in [-45, -30, -15, 0, 15, 30, 45]:
         conditions.append(
             Condition(
                 f"rotation_{angle}",

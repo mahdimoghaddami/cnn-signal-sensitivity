@@ -21,7 +21,7 @@ All five function implementations appear directly in the solution notebook. The 
 follow an immediate side-by-side input/output demonstration for each operator. Both
 versions provide parameter/return type hints and a short conceptual reminder.
 The checks
-cover meaningful non-identity examples. The result suite contains 18 conditions, including
+cover meaningful non-identity examples. The result suite contains 20 conditions, including
 original RGB and grayscale controls. The classifier is ResNet-18 with TorchVision's
 ImageNet-trained weights and ten selected Imagenette outputs. No retraining is required.
 

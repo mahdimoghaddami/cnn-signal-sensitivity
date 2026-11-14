@@ -95,7 +95,6 @@ def notebook(solution=False):
     from cnn_signal_sensitivity.plotting import (
         image_grid,
         plot_curves,
-        show_input_output,
         transformation_gallery,
     )
     from cnn_signal_sensitivity.transforms import identity_condition
@@ -212,7 +211,24 @@ def notebook(solution=False):
     See ASSIGNMENT.md for coordinate conventions.
     """,
     )
-    demonstrate("affine_rotation", ", angle=30.0", "Output: 30-degree counterclockwise rotation")
+    code(
+        """
+    demo_input = case_images[1:2].clone()
+    angles = [-45, -20, 20, 45]
+    fig, axes = plt.subplots(1, 5, figsize=(15, 3.5), layout="constrained")
+    axes[0].imshow(demo_input[0].permute(1, 2, 0).cpu())
+    axes[0].set_title("Input image")
+    for ax, angle in zip(axes[1:], angles):
+        rotated = affine_rotation(demo_input, angle=angle)
+        ax.imshow(rotated[0].permute(1, 2, 0).cpu())
+        ax.set_title(f"Rotation {angle:+d} degrees")
+    for ax in axes:
+        ax.axis("off")
+    fig.savefig(OUTPUT / "demo_affine_rotation.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["demonstration", "affine_rotation"],
+    )
     code("checks.check_affine(affine_rotation)")
     exercise(
         "image_histogram",
@@ -299,7 +315,7 @@ def notebook(solution=False):
     code("""
     conditions = lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)
     selected = [c for c in conditions if c.key in
-                {'clean', 'sampling_8', 'quantization_2', 'rotation_30', 'grayscale', 'equalized'}]
+                {'clean', 'sampling_8', 'quantization_2', 'rotation_-45', 'rotation_45', 'grayscale', 'equalized'}]
     fig = transformation_gallery(model, case_images[:2], case_labels[:2], case_ids[:2], selected)
     fig.savefig(OUTPUT / "examples.png", dpi=150, bbox_inches="tight")
     plt.show()
