@@ -410,8 +410,30 @@ def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
             ]
             assert function.name in calls
-            if function.name != "image_histogram":
+            if function.name == "affine_rotation":
                 assert "show_input_output" in calls
+            else:
+                assert "imshow" in demo.source
+
+
+def test_expanded_instructor_demonstrations():
+    from scripts.build_notebooks import notebook
+
+    demos = {
+        cell.metadata["tags"][1]: cell.source
+        for cell in notebook(True).cells
+        if "demonstration" in cell.metadata.get("tags", [])
+    }
+    assert "factors = [1, 2, 4, 8]" in demos["sample_image"]
+    assert "bit_depths = [1, 2, 4, 8]" in demos["quantize"]
+    assert "grayscale_input" in demos["image_histogram"]
+    assert "histogram_equalize(demo_output)" in demos["histogram_equalize"]
+    comparison = next(
+        cell.source
+        for cell in notebook(True).cells
+        if "histogram-comparison" in cell.metadata.get("tags", [])
+    )
+    assert "image_histogram(twice_equalized)" in comparison
 
 
 def test_image_histograms_and_independent_equalization(monkeypatch):
@@ -427,6 +449,7 @@ def test_image_histograms_and_independent_equalization(monkeypatch):
     assert counts.dtype == torch.long and counts.device == images.device
     assert counts.sum(1).tolist() == [63, 63]
     torch.testing.assert_close(images, original)
+
     def unavailable_histogram(batch):
         raise AssertionError("Equalization must not call image_histogram.")
 

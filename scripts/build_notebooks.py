@@ -152,7 +152,24 @@ def notebook(solution=False):
     Factor 1 should reproduce the input. Use slicing and tensor repetition.
     """,
     )
-    demonstrate("sample_image", ", factor=8", "Output: sampling factor 8")
+    code(
+        """
+    demo_input = case_images[1:2].clone()
+    factors = [1, 2, 4, 8]
+    fig, axes = plt.subplots(1, 5, figsize=(15, 3.5), layout="constrained")
+    axes[0].imshow(demo_input[0].permute(1, 2, 0).cpu())
+    axes[0].set_title("Input image")
+    for ax, factor in zip(axes[1:], factors):
+        sampled = sample_image(demo_input, factor=factor)
+        ax.imshow(sampled[0].permute(1, 2, 0).cpu())
+        ax.set_title(f"Sampling factor {factor}")
+    for ax in axes:
+        ax.axis("off")
+    fig.savefig(OUTPUT / "demo_sample_image.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["demonstration", "sample_image"],
+    )
     code("checks.check_sampling(sample_image)")
     exercise(
         "quantize",
@@ -164,7 +181,24 @@ def notebook(solution=False):
     Eight bits preserves the original 8-bit samples. Lower bit depths retain fewer intensity levels.
     """,
     )
-    demonstrate("quantize", ", bits=2", "Output: 2 bits (4 intensity levels/channel)")
+    code(
+        """
+    demo_input = case_images[1:2].clone()
+    bit_depths = [1, 2, 4, 8]
+    fig, axes = plt.subplots(1, 5, figsize=(15, 3.5), layout="constrained")
+    axes[0].imshow(demo_input[0].permute(1, 2, 0).cpu())
+    axes[0].set_title("Input image")
+    for ax, bits in zip(axes[1:], bit_depths):
+        quantized = quantize(demo_input, bits=bits)
+        ax.imshow(quantized[0].permute(1, 2, 0).cpu())
+        ax.set_title(f"{bits} bit(s): {2**bits} levels/channel")
+    for ax in axes:
+        ax.axis("off")
+    fig.savefig(OUTPUT / "demo_quantize.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["demonstration", "quantize"],
+    )
     code("checks.check_quantize(quantize)")
     exercise(
         "affine_rotation",
@@ -186,7 +220,7 @@ def notebook(solution=False):
         """
     ### D1. Image histogram
     A histogram counts how many pixels have each intensity level.
-    Use mean-RGB intensity and round intensity*255 into 256 bins.
+    First convert RGB to grayscale using the channel mean, then round intensity*255 into 256 bins.
     Return a separate row of counts for each image; do not combine the batch.
     Use this function to plot the histograms before and after equalization.
     """,
@@ -194,13 +228,17 @@ def notebook(solution=False):
     code(
         """
     histogram_input = case_images[1:2].clone()
+    grayscale_input = histogram_input.mean(dim=1, keepdim=True)
     counts = image_histogram(histogram_input)[0]
-    fig, axes = plt.subplots(1, 2, figsize=(9, 4), layout="constrained")
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4), layout="constrained")
     axes[0].imshow(histogram_input[0].permute(1, 2, 0).cpu())
     axes[0].set_title("Input image")
     axes[0].axis("off")
-    axes[1].bar(range(256), counts.cpu().numpy(), width=1)
-    axes[1].set(title="Input intensity histogram", xlabel="Intensity level", ylabel="Pixel count", xlim=(0, 255))
+    axes[1].imshow(grayscale_input[0, 0].cpu(), cmap="gray", vmin=0, vmax=1)
+    axes[1].set_title("Grayscale intensity (RGB mean)")
+    axes[1].axis("off")
+    axes[2].bar(range(256), counts.cpu().numpy(), width=1)
+    axes[2].set(title="Input intensity histogram", xlabel="Intensity level", ylabel="Pixel count", xlim=(0, 255))
     fig.savefig(OUTPUT / "demo_image_histogram.png", dpi=150, bbox_inches="tight")
     plt.show()
     """,
@@ -219,14 +257,30 @@ def notebook(solution=False):
     Leave constant-intensity images unchanged. Replicate the result into three channels.
     """,
     )
-    demonstrate("histogram_equalize", "", "Output: histogram-equalized grayscale")
+    code(
+        """
+    demo_input = case_images[1:2].clone()
+    demo_output = histogram_equalize(demo_input)
+    twice_equalized = histogram_equalize(demo_output)
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4), layout="constrained")
+    for ax, image, title in zip(axes, [demo_input, demo_output, twice_equalized],
+                               ["Input image", "Histogram-equalized grayscale", "Twice histogram-equalized"]):
+        ax.imshow(image[0].permute(1, 2, 0).cpu())
+        ax.set_title(title)
+        ax.axis("off")
+    fig.savefig(OUTPUT / "demo_histogram_equalize.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["demonstration", "histogram_equalize"],
+    )
     code(
         """
     input_counts = image_histogram(demo_input)[0]
     output_counts = image_histogram(demo_output)[0]
-    fig, axes = plt.subplots(1, 2, figsize=(10, 3.5), sharex=True, sharey=True, layout="constrained")
-    for ax, counts, title in zip(axes, [input_counts, output_counts],
-                                ["Input intensity histogram", "Equalized output histogram"]):
+    twice_counts = image_histogram(twice_equalized)[0]
+    fig, axes = plt.subplots(1, 3, figsize=(13, 3.5), sharex=True, sharey=True, layout="constrained")
+    for ax, counts, title in zip(axes, [input_counts, output_counts, twice_counts],
+                                ["Input intensity histogram", "Equalized output histogram", "Twice equalized histogram"]):
         ax.bar(range(256), counts.cpu().numpy(), width=1)
         ax.set(title=title, xlabel="Intensity level", xlim=(0, 255))
     axes[0].set_ylabel("Pixel count")
@@ -299,12 +353,10 @@ def write_notebook(destination, document, *, backup_dir=None):
 
 
 def main():
-    for destination, solution in [
-        (ROOT / "notebooks/01_cnn_signal_sensitivity.ipynb", False),
-        (ROOT / "instructor/01_cnn_signal_sensitivity_solution.ipynb", True),
-    ]:
-        write_notebook(destination, notebook(solution))
-        print(destination.relative_to(ROOT))
+    # Finalize the instructor notebook before regenerating student deliverables.
+    destination = ROOT / "instructor/01_cnn_signal_sensitivity_solution.ipynb"
+    write_notebook(destination, notebook(True))
+    print(destination.relative_to(ROOT))
 
 
 if __name__ == "__main__":
