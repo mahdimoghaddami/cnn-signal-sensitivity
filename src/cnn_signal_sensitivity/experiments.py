@@ -30,8 +30,15 @@ DEFAULT_GROUPS = (
 )
 
 
-def lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize):
-    """Evaluate exactly the four functions implemented in the lab notebook."""
+def lab_conditions(
+    sample_image,
+    quantize,
+    affine_rotation,
+    histogram_equalize,
+    gaussian_smooth=None,
+    laplacian_sharpen=None,
+):
+    """Evaluate notebook implementations; optional filters preserve older notebook calls."""
     conditions = [identity_condition()]
     for factor in [1, 2, 4, 8, 16]:
         conditions.append(
@@ -85,6 +92,38 @@ def lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize):
             ),
         ]
     )
+    if gaussian_smooth is not None:
+        for sigma in [0, 0.5, 1, 2, 4]:
+            conditions.append(
+                Condition(
+                    f"gaussian_{sigma:g}",
+                    "gaussian_smoothing",
+                    sigma,
+                    "sigma (pixels)",
+                    partial(gaussian_smooth, sigma=sigma),
+                    settings={
+                        "radius": "ceil(3*sigma)",
+                        "border": "reflect",
+                        "channels": "independent RGB",
+                    },
+                )
+            )
+    if laplacian_sharpen is not None:
+        for amount in [0, 0.25, 0.5, 1, 2]:
+            conditions.append(
+                Condition(
+                    f"laplacian_{amount:g}",
+                    "laplacian_sharpening",
+                    amount,
+                    "sharpening amount",
+                    partial(laplacian_sharpen, amount=amount),
+                    settings={
+                        "kernel": [[0, 1, 0], [1, -4, 1], [0, 1, 0]],
+                        "border": "reflect",
+                        "clip": [0, 1],
+                    },
+                )
+            )
     return conditions
 
 

@@ -85,3 +85,30 @@ def check_image_histogram(function):
     expected[1, 255] = 4
     torch.testing.assert_close(function(images), expected)
     print("Image histogram checks passed.")
+
+
+def check_gaussian_smooth(function):
+    image = torch.full((1, 3, 17, 17), 0.4)
+    torch.testing.assert_close(function(image, sigma=0), image)
+    torch.testing.assert_close(function(image, sigma=1), image)
+    impulse = torch.zeros_like(image)
+    impulse[0, 0, 8, 8] = 1
+    smoothed = function(impulse, sigma=1)
+    assert 0 < smoothed[0, 0, 8, 8] < 1
+    torch.testing.assert_close(smoothed.sum(), torch.tensor(1.0))
+    assert smoothed[:, 1:].count_nonzero() == 0
+    print("Gaussian smoothing checks passed.")
+
+
+def check_laplacian_sharpen(function):
+    image = torch.full((1, 3, 9, 9), 0.4)
+    torch.testing.assert_close(function(image, amount=1), image)
+    image[:, :, 4, 4] = 0.5
+    torch.testing.assert_close(function(image, amount=0), image)
+    expected = image.clone()
+    expected[:, :, 4, 4] = 0.6
+    for y, x in [(3, 4), (5, 4), (4, 3), (4, 5)]:
+        expected[:, :, y, x] = 0.375
+    torch.testing.assert_close(function(image, amount=0.25), expected)
+    validate_images(function(image, amount=10))
+    print("Laplacian sharpening checks passed.")

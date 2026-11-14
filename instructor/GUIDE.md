@@ -4,6 +4,8 @@ The active notebook now has four sections: setup, original predictions, operator
 implementation, and comparison/discussion. It uses one balanced set of 200 images.
 There are no development/evaluation modes, run labels, interaction challenges, or
 feature-map analysis. Student code and evaluated operators match exactly.
+The instructor version has six operators plus the histogram helper. Student notebook
+and distribution files remain frozen until the user requests finalization.
 
 ## Exercises
 
@@ -17,11 +19,17 @@ feature-map analysis. Student code and evaluated operators match exactly.
   Students also implement image_histogram to plot the input and output histograms using
   identical axes. Equalization computes its own histogram independently. Counts are per image.
 
-All five function implementations appear directly in the solution notebook. The public checks
+- Gaussian smoothing: construct and normalize a 2-D Gaussian kernel, using radius
+  ceil(3*sigma), reflection padding, and independent RGB filtering. Zero sigma is identity.
+- Laplacian sharpening: use the four-neighbor mask with center -4, then subtract the
+  scaled signed response from the original image. Clip only the final result to [0,1].
+  Reflection padding preserves constant images; amount zero is identity.
+
+All seven function implementations appear directly in the solution notebook. The public checks
 follow an immediate side-by-side input/output demonstration for each operator. Both
 versions provide parameter/return type hints and a short conceptual reminder.
 The checks
-cover meaningful non-identity examples. The result suite contains 20 conditions, including
+cover meaningful non-identity examples. The result suite contains 30 conditions, including
 original RGB and grayscale controls. The classifier is ResNet-18 with TorchVision's
 ImageNet-trained weights and ten selected Imagenette outputs. No retraining is required.
 
@@ -31,8 +39,9 @@ of findings from this model and sample; flat curves and negative results are val
 
 ## Maintenance
 
-Rebuild with scripts/build_notebooks.py, verify with scripts/verify_notebook.py, and
-package with scripts/package_student.py. The executed copy and results go to outputs/lab/.
+Rebuild only the instructor notebook with scripts/build_notebooks.py and verify with
+scripts/verify_notebook.py. Verification saves successful outputs in the instructor notebook
+and under outputs/lab/. Do not rebuild the student notebook or ZIP until finalization.
 Existing notebook edits/outputs are archived before rebuilding. Previous run folders
 and old subset manifests are preserved. Legacy utilities remain usable for archived runs
 but are not part of this assignment or its notebook workflow.

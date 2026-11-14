@@ -57,7 +57,8 @@ def notebook(solution=False):
     # From Pixels to Predictions
     **CSI 5550 - Visual Computing**
 
-    Implement sampling, quantization, affine rotation, and histogram equalization.
+    Implement sampling, quantization, affine rotation, histogram equalization,
+    Gaussian smoothing, and Laplacian sharpening.
     Then measure how **your implementations** affect a trained image classifier.
     """)
     if solution:
@@ -122,7 +123,7 @@ def notebook(solution=False):
     plt.show()
     """)
     md("""
-    The four operations are:
+    The six operations are:
 
     | Operation | What changes in the image |
     |---|---|
@@ -130,11 +131,14 @@ def notebook(solution=False):
     | Intensity quantization | Use fewer intensity levels. |
     | Affine rotation | Rotate and interpolate pixel values. |
     | Histogram equalization | Redistribute grayscale intensities to change contrast. |
+    | Gaussian smoothing | Average neighboring pixels to reduce fine detail. |
+    | Laplacian sharpening | Emphasize rapid intensity changes. |
 
-    **Before running:** Which of the four operations should change predictions most? Why?
+    **Before running:** Which operations should change predictions most? Why?
 
     **Your prediction:** TODO
-
+    """)
+    md("""
     ## 3. Implement the operators
     Inputs are floating-point RGB tensors of shape (B,3,H,W), with values in [0,1].
     Preserve shape, dtype, and device; do not change the input in place.
@@ -305,19 +309,86 @@ def notebook(solution=False):
         tags=["histogram-comparison"],
     )
     code("checks.check_histogram(histogram_equalize)")
+    exercise(
+        "gaussian_smooth",
+        "(images: torch.Tensor, sigma: float) -> torch.Tensor",
+        r"""
+    ### E. Gaussian smoothing
+    A smoothing filter replaces each pixel with a weighted neighborhood average.
+    Construct $\exp[-(x^2+y^2)/(2\sigma^2)]$ within radius $\lceil3\sigma\rceil$ and
+    normalize its sum to one. Filter each RGB channel independently with reflection padding.
+    Return the input unchanged for zero sigma. Convolution with conv2d is allowed.
+    """,
+    )
+    code(
+        """
+    demo_input = case_images[1:2].clone()
+    sigmas = [0.5, 1, 2, 4]
+    fig, axes = plt.subplots(1, 5, figsize=(15, 3.5), layout="constrained")
+    axes[0].imshow(demo_input[0].permute(1, 2, 0).cpu())
+    axes[0].set_title("Input image")
+    for ax, sigma in zip(axes[1:], sigmas):
+        smoothed = gaussian_smooth(demo_input, sigma=sigma)
+        ax.imshow(smoothed[0].permute(1, 2, 0).cpu())
+        ax.set_title(f"Gaussian sigma {sigma:g}")
+    for ax in axes:
+        ax.axis("off")
+    fig.savefig(OUTPUT / "demo_gaussian_smooth.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["demonstration", "gaussian_smooth"],
+    )
+    code("checks.check_gaussian_smooth(gaussian_smooth)")
+    exercise(
+        "laplacian_sharpen",
+        "(images: torch.Tensor, amount: float) -> torch.Tensor",
+        r"""
+    ### F. Laplacian sharpening
+    The Laplacian measures second-order intensity changes. Use the mask
+    [[0,1,0],[1,-4,1],[0,1,0]] independently on RGB channels with reflection padding.
+    Sharpen with $g=f-a\nabla^2f$, for $a\geq0$, then clip to [0,1].
+    Keep the signed response until the final subtraction; do not take its absolute value.
+    """,
+    )
+    code(
+        """
+    demo_input = case_images[1:2].clone()
+    amounts = [0.25, 0.5, 1, 2]
+    fig, axes = plt.subplots(1, 5, figsize=(15, 3.5), layout="constrained")
+    axes[0].imshow(demo_input[0].permute(1, 2, 0).cpu())
+    axes[0].set_title("Input image")
+    for ax, amount in zip(axes[1:], amounts):
+        sharpened = laplacian_sharpen(demo_input, amount=amount)
+        ax.imshow(sharpened[0].permute(1, 2, 0).cpu())
+        ax.set_title(f"Sharpening amount {amount:g}")
+    for ax in axes:
+        ax.axis("off")
+    fig.savefig(OUTPUT / "demo_laplacian_sharpen.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    """,
+        tags=["demonstration", "laplacian_sharpen"],
+    )
+    code("checks.check_laplacian_sharpen(laplacian_sharpen)")
     md("""
     ## 4. Compare your results
-    The evaluation below calls the four functions you just wrote.
+    The evaluation below calls the six operator functions you just wrote.
     The grayscale comparison isolates histogram equalization from the removal of color.
     Rotation can also crop objects; inspect the images before interpreting accuracy changes.
     """)
     code("""
     reload(experiments)  # pick up updated rotation settings in an existing kernel
-    conditions = experiments.lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)
+    conditions = experiments.lab_conditions(
+        sample_image, quantize, affine_rotation, histogram_equalize,
+        gaussian_smooth, laplacian_sharpen,
+    )
     selected = [c for c in conditions if c.key in
                 {'clean', 'sampling_8', 'quantization_2', 'rotation_-45', 'rotation_45', 'grayscale', 'equalized'}]
     fig = transformation_gallery(model, case_images[:2], case_labels[:2], case_ids[:2], selected)
     fig.savefig(OUTPUT / "examples.png", dpi=150, bbox_inches="tight")
+    plt.show()
+    filter_examples = [c for c in conditions if c.key in {'clean', 'gaussian_2', 'laplacian_1'}]
+    fig = transformation_gallery(model, case_images[:2], case_labels[:2], case_ids[:2], filter_examples)
+    fig.savefig(OUTPUT / "filter_examples.png", dpi=150, bbox_inches="tight")
     plt.show()
     """)
     code("""
@@ -334,7 +405,8 @@ def notebook(solution=False):
 
     **Discuss:** Did your results match your prediction? Explain the effects of sampling,
     intensity resolution, interpolation, and contrast. Did histogram equalization help
-    compared with grayscale? Support your answers with numbers and examples.
+    compared with grayscale? How do smoothing and sharpening affect detail and predictions?
+    Support your answers with numbers and examples.
 
     **Your discussion:** TODO
     """)

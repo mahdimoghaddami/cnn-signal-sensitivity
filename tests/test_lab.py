@@ -237,8 +237,8 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path):
         for cell in document.cells:
             if cell.cell_type == "code":
                 compile(cell.source, "<notebook cell>", "exec")
-    assert sum("exercise" in cell.metadata.get("tags", []) for cell in starter.cells) == 5
-    assert sum("raise NotImplementedError" in cell.source for cell in starter.cells) == 5
+    assert sum("exercise" in cell.metadata.get("tags", []) for cell in starter.cells) == 7
+    assert sum("raise NotImplementedError" in cell.source for cell in starter.cells) == 7
     assert not any("raise NotImplementedError" in cell.source for cell in solution.cells)
     prose = [cell.source for cell in starter.cells if cell.cell_type == "markdown"]
     assert sum(len(text.split()) for text in prose) < 800
@@ -380,10 +380,7 @@ def test_notebook_only_evaluates_the_exercise_functions():
         "## 6.",
     ]:
         assert removed not in text
-    assert (
-        "experiments.lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)"
-        in text
-    )
+    assert "gaussian_smooth, laplacian_sharpen," in text
     assert "already trained on ImageNet" in text
 
 
@@ -399,7 +396,7 @@ def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
             for index, cell in enumerate(document.cells)
             if "exercise" in cell.metadata.get("tags", [])
         ]
-        assert len(exercises) == 5
+        assert len(exercises) == 7
         for index, cell in exercises:
             function = ast.parse(cell.source).body[0]
             assert all(argument.annotation is not None for argument in function.args.args)
@@ -428,6 +425,8 @@ def test_expanded_instructor_demonstrations():
     assert "factors = [1, 2, 4, 8]" in demos["sample_image"]
     assert "bit_depths = [1, 2, 4, 8]" in demos["quantize"]
     assert "angles = [-45, -20, 20, 45]" in demos["affine_rotation"]
+    assert "sigmas = [0.5, 1, 2, 4]" in demos["gaussian_smooth"]
+    assert "amounts = [0.25, 0.5, 1, 2]" in demos["laplacian_sharpen"]
     assert "grayscale_input" in demos["image_histogram"]
     assert "histogram_equalize(demo_output)" in demos["histogram_equalize"]
     comparison = next(
@@ -457,3 +456,51 @@ def test_image_histograms_and_independent_equalization(monkeypatch):
 
     monkeypatch.setattr(reference, "image_histogram", unavailable_histogram)
     checks.check_histogram(reference.histogram_equalize)
+
+
+def test_filter_exercises_and_full_lab_suite():
+    from torchvision.transforms.functional import gaussian_blur as library_gaussian
+
+    from cnn_signal_sensitivity.experiments import lab_conditions
+    from instructor.reference import (
+        affine_rotation,
+        gaussian_smooth,
+        histogram_equalize,
+        laplacian_sharpen,
+        sample_image,
+    )
+
+    checks.check_gaussian_smooth(gaussian_smooth)
+    checks.check_laplacian_sharpen(laplacian_sharpen)
+    image = torch.rand(2, 3, 17, 19, dtype=torch.float64)
+    original = image.clone()
+    torch.testing.assert_close(gaussian_smooth(image, 1), library_gaussian(image, [7, 7], [1, 1]))
+    for output in [gaussian_smooth(image, 1), laplacian_sharpen(image, 0.5)]:
+        assert output.shape == image.shape and output.dtype == image.dtype
+        assert output.device == image.device and output.min() >= 0 and output.max() <= 1
+    torch.testing.assert_close(image, original)
+    conditions = lab_conditions(
+        sample_image,
+        quantize,
+        affine_rotation,
+        histogram_equalize,
+        gaussian_smooth,
+        laplacian_sharpen,
+    )
+    assert len(conditions) == len({c.key for c in conditions}) == 30
+    assert {"gaussian_2", "laplacian_1", "rotation_-45", "rotation_45"} <= {
+        c.key for c in conditions
+    }
+    for condition in conditions:
+        output = condition.apply(image.float(), torch.tensor([0, 1]))
+        assert output.shape == image.shape and torch.isfinite(output).all()
+
+
+@pytest.mark.parametrize("value", [-1, float("nan"), float("inf")])
+def test_filters_reject_invalid_strengths(value):
+    from instructor.reference import gaussian_smooth, laplacian_sharpen
+
+    image = torch.zeros(1, 3, 17, 17)
+    for function in [gaussian_smooth, laplacian_sharpen]:
+        with pytest.raises(ValueError):
+            function(image, value)

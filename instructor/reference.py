@@ -131,6 +131,62 @@ def quantize(images: torch.Tensor, bits: int) -> torch.Tensor:
     return torch.round(images * levels) / levels
 
 
+def gaussian_smooth(images: torch.Tensor, sigma: float) -> torch.Tensor:
+    """Smooth spatial detail using a normalized Gaussian-weighted neighborhood.
+
+    Args:
+        images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
+            B is the number of images; H and W are height and width.
+        sigma: Nonnegative Gaussian standard deviation in pixels; zero is identity.
+            Use kernel radius ceil(3*sigma), smaller than H and W.
+
+    Returns:
+        Smoothed batch with the same shape, dtype, and device as images.
+        Filter RGB channels independently using reflection padding.
+        The input is not modified.
+    """
+    if not math.isfinite(sigma) or sigma < 0:
+        raise ValueError("sigma must be finite and nonnegative.")
+    if sigma == 0:
+        return images.clone()
+    radius = math.ceil(3 * sigma)
+    if radius >= min(images.shape[-2:]):
+        raise ValueError("Kernel radius must be smaller than the image dimensions.")
+    offsets = torch.arange(-radius, radius + 1, device=images.device, dtype=images.dtype)
+    y, x = torch.meshgrid(offsets, offsets, indexing="ij")
+    kernel = torch.exp(-(x.square() + y.square()) / (2 * sigma**2))
+    kernel = kernel / kernel.sum()
+    channels = images.shape[1]
+    weight = kernel.expand(channels, 1, -1, -1)
+    padded = F.pad(images, (radius, radius, radius, radius), mode="reflect")
+    return F.conv2d(padded, weight, groups=channels).clamp(0, 1)
+
+
+def laplacian_sharpen(images: torch.Tensor, amount: float) -> torch.Tensor:
+    """Emphasize intensity changes by subtracting a scaled Laplacian response.
+
+    Args:
+        images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
+            B is the number of images; H and W are height and width.
+        amount: Nonnegative sharpening strength; zero is identity.
+
+    Returns:
+        Sharpened batch with the same shape, dtype, and device as images.
+        Use the four-neighbor Laplacian with center -4, reflection padding,
+        and independent RGB filtering. Clip the final values to [0, 1].
+        The input is not modified.
+    """
+    if not math.isfinite(amount) or amount < 0:
+        raise ValueError("amount must be finite and nonnegative.")
+    if amount == 0:
+        return images.clone()
+    kernel = images.new_tensor([[0, 1, 0], [1, -4, 1], [0, 1, 0]])
+    weight = kernel.expand(images.shape[1], 1, -1, -1)
+    padded = F.pad(images, (1, 1, 1, 1), mode="reflect")
+    response = F.conv2d(padded, weight, groups=images.shape[1])
+    return (images - amount * response).clamp(0, 1)
+
+
 def gamma_transform(images, gamma):
     """Power law applied independently to encoded RGB channels; gamma > 0."""
     if gamma <= 0:
