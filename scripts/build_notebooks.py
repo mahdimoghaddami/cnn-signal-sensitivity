@@ -73,6 +73,7 @@ def notebook(solution=False):
     import math
     import os
     import sys
+    from importlib import reload
     from pathlib import Path
 
     import matplotlib.pyplot as plt
@@ -99,6 +100,7 @@ def notebook(solution=False):
     )
     from cnn_signal_sensitivity.transforms import identity_condition
 
+    reload(checks)  # refresh checks if this kernel imported an older version
     seed_everything(5550)
     torch.set_num_threads(min(8, os.cpu_count() or 1))
     DEVICE = choose_device()

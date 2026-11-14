@@ -401,6 +401,7 @@ def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
             assert all(argument.annotation is not None for argument in function.args.args)
             assert function.returns is not None
             assert ast.get_docstring(function) and "TODO" not in ast.get_docstring(function)
+            assert "A single image must keep its batch dimension" not in ast.get_docstring(function)
             demo = document.cells[index + 1]
             assert "demonstration" in demo.metadata.get("tags", [])
             calls = [

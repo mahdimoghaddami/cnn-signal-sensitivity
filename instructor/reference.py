@@ -14,7 +14,6 @@ def sample_image(images: torch.Tensor, factor: int) -> torch.Tensor:
     Args:
         images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
             B is the number of images; H and W are height and width.
-            A single image must keep its batch dimension: (1, 3, H, W).
         factor: Positive integer spacing between retained rows and columns.
 
     Returns:
@@ -36,7 +35,6 @@ def affine_rotation(images: torch.Tensor, angle: float) -> torch.Tensor:
     Args:
         images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
             B is the number of images; H and W are height and width.
-            A single image must keep its batch dimension: (1, 3, H, W).
         angle: Counterclockwise rotation in degrees, applied to every image.
 
     Returns:
@@ -76,7 +74,6 @@ def image_histogram(images: torch.Tensor) -> torch.Tensor:
     Args:
         images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
             B is the number of images; H and W are height and width.
-            A single image must keep its batch dimension: (1, 3, H, W).
 
     Returns:
         Integer pixel counts shaped (B, 256), on the input device.
@@ -94,7 +91,6 @@ def histogram_equalize(images: torch.Tensor) -> torch.Tensor:
     Args:
         images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
             B is the number of images; H and W are height and width.
-            A single image must keep its batch dimension: (1, 3, H, W).
 
     Returns:
         Equalized grayscale batch in [0, 1], with intensity replicated across
@@ -123,7 +119,6 @@ def quantize(images: torch.Tensor, bits: int) -> torch.Tensor:
     Args:
         images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
             B is the number of images; H and W are height and width.
-            A single image must keep its batch dimension: (1, 3, H, W).
         bits: Integer bit depth from 1 to 8, applied to each color channel.
 
     Returns:
