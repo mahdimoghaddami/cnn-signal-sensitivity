@@ -20,7 +20,7 @@
 \usepackage[hidelinks]{hyperref}
 
 \captionsetup{font=small,labelfont=bf}
-\graphicspath{{../typst/figures/}{docs/typst/figures/}}
+\graphicspath{{figures/}{docs/latex/figures/}}
 
 \definecolor{accent}{HTML}{137C8B}
 \definecolor{muted}{HTML}{4A5568}
@@ -74,7 +74,7 @@ uv sync --locked\\
 uv run --locked cnn-signal-sensitivity prepare\\
 uv run --locked jupyter lab
 \end{quote}
-Open \code{notebooks/01\_cnn\_signal\_sensitivity.ipynb}; each exercise stub raises
+Open \code{notebooks/visual\_computing\_lab.ipynb}; each exercise stub raises
 \code{NotImplementedError} until completed. Each exercise is followed immediately by a
 multi-parameter visual demonstration and a public check in \code{cnn\_signal\_sensitivity.checks}.
 
@@ -139,7 +139,7 @@ To obtain the gray ($0.5$) fill outside the image boundary while using \code{pad
 \end{figure}
 
 \subsection{D1. Image Histogram (\code{image\_histogram})}
-Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). Looping over the batch dimension $B$ with 1-D \code{torch.bincount(..., minlength=256)} is fine. You will use this function to plot input, equalized, and twice-equalized histograms on shared axes.
+Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). Looping over the batch dimension $B$ with 1-D \code{torch.bincount(..., minlength=256)} is fine. You will use this function to plot the input and equalized histograms on shared axes.
 
 \begin{figure}[H]
   \centering
@@ -159,9 +159,9 @@ where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clam
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.86\linewidth]{demo_histogram_equalize.png}\\[4pt]
-  \includegraphics[width=0.94\linewidth]{histogram_comparison.png}
-  \caption{Top: input image, expected \code{histogram\_equalize} output, and twice-equalized output. Bottom: corresponding 256-bin intensity histograms.}
+  \includegraphics[width=0.62\linewidth]{demo_histogram_equalize.png}\\[4pt]
+  \includegraphics[width=0.76\linewidth]{histogram_comparison.png}
+  \caption{Top: input image and expected \code{histogram\_equalize} output. Bottom: corresponding 256-bin intensity histograms.}
 \end{figure}
 
 \subsection{E. Gaussian Smoothing (\code{gaussian\_smooth})}
@@ -245,11 +245,11 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
 
 \section{Submission and Grading}
 
-Before packaging your submission, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom with saved outputs. Notice that rerunning replaces files in \code{outputs/lab/}; copy that directory elsewhere if you want to archive an earlier run.
+Before submitting, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom and all figures, tables, and written responses are saved inside the notebook.
 
 \begin{itemize}
-  \item \textbf{Submit:} Completed \code{notebooks/01\_cnn\_signal\_sensitivity.ipynb}, any added Python modules, \code{outputs/lab/}, and \code{data/lab\_subset.json}.
-  \item \textbf{Do not submit:} \code{.venv/}, downloaded Imagenette image archives, or cached model weights.
+  \item \textbf{Submit:} Only the completed and executed notebook file (\code{notebooks/visual\_computing\_lab.ipynb}).
+  \item \textbf{Do not submit:} \code{.venv/}, \code{outputs/}, \code{data/}, downloaded Imagenette image archives, cached model weights, or any other project files.
 \end{itemize}
 
 \begin{table}[h]

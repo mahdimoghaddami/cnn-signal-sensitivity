@@ -100,10 +100,10 @@ are not matched severities, and the findings apply to this model and these image
 
 ## Submission and grading
 
-Restart the kernel and run all cells. Submit the completed notebook, any added source
-files, `outputs/lab/`, and `data/lab_subset.json`. Do not submit image archives, model weights,
-or the virtual environment. Results in `outputs/lab/` are replaced when you rerun; copy
-that folder if you want to retain an earlier experiment.
+Restart the kernel and run all cells so all figures, tables, and written responses are saved
+inside the notebook. Submit only the completed and executed notebook file
+(`notebooks/visual_computing_lab.ipynb`). Do not submit `.venv/`, `outputs/`, `data/`,
+image archives, model weights, or any other project files.
 
 | Component | Weight |
 |---|---:|

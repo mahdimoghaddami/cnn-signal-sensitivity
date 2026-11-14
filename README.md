@@ -13,7 +13,7 @@ uv run --locked cnn-signal-sensitivity prepare
 uv run --locked jupyter lab
 ~~~
 
-Open `notebooks/01_cnn_signal_sensitivity.ipynb` for the student starter or
+Open `notebooks/visual_computing_lab.ipynb` for the student starter or
 `instructor/01_cnn_signal_sensitivity_solution.ipynb` for completed implementations.
 Select the project's `.venv` interpreter when using another notebook editor.
 

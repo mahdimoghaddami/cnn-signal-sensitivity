@@ -16,14 +16,14 @@ def package_student(destination=None):
             "uv.lock",
             ".python-version",
             ".gitignore",
-            "notebooks/01_cnn_signal_sensitivity.ipynb",
+            "notebooks/visual_computing_lab.ipynb",
         ]
     ]
     files.extend(sorted((ROOT / "src/cnn_signal_sensitivity").glob("*.py")))
-    typst_pdf = ROOT / "docs/typst/assignment.pdf"
+    latex_pdf = ROOT / "docs/latex/assignment.pdf"
     pdfs = sorted((ROOT / "docs").rglob("*.pdf"))
-    if typst_pdf.is_file():
-        instructions = [typst_pdf]
+    if latex_pdf.is_file():
+        instructions = [latex_pdf]
     elif pdfs:
         instructions = [pdfs[0]]
     else:

@@ -269,12 +269,11 @@ def notebook(solution=False):
         """
     demo_input = case_images[1:2].clone()
     demo_output = histogram_equalize(demo_input)
-    twice_equalized = histogram_equalize(demo_output)
-    fig, axes = plt.subplots(1, 3, figsize=(12, 4), layout="constrained")
+    fig, axes = plt.subplots(1, 2, figsize=(8, 4), layout="constrained")
     for ax, image, title in zip(
         axes,
-        [demo_input, demo_output, twice_equalized],
-        ["Input image", "Histogram-equalized grayscale", "Twice histogram-equalized"],
+        [demo_input, demo_output],
+        ["Input image", "Histogram-equalized grayscale"],
     ):
         ax.imshow(image[0].permute(1, 2, 0).cpu())
         ax.set_title(title)
@@ -288,12 +287,11 @@ def notebook(solution=False):
         """
     input_counts = image_histogram(demo_input)[0]
     output_counts = image_histogram(demo_output)[0]
-    twice_counts = image_histogram(twice_equalized)[0]
-    fig, axes = plt.subplots(1, 3, figsize=(13, 3.5), sharex=True, sharey=True, layout="constrained")
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.5), sharex=True, sharey=True, layout="constrained")
     for ax, counts, title in zip(
         axes,
-        [input_counts, output_counts, twice_counts],
-        ["Input intensity histogram", "Equalized output histogram", "Twice equalized histogram"],
+        [input_counts, output_counts],
+        ["Input intensity histogram", "Equalized output histogram"],
     ):
         ax.bar(range(256), counts.cpu().numpy(), width=1)
         ax.set(title=title, xlabel="Intensity level", xlim=(0, 255))
@@ -492,10 +490,13 @@ def write_notebook(destination, document, *, backup_dir=None):
 
 
 def main():
-    # Finalize the instructor notebook before regenerating student deliverables.
-    destination = ROOT / "instructor/01_cnn_signal_sensitivity_solution.ipynb"
-    write_notebook(destination, notebook(True))
-    print(destination.relative_to(ROOT))
+    for relative, solution in [
+        ("instructor/01_cnn_signal_sensitivity_solution.ipynb", True),
+        ("notebooks/visual_computing_lab.ipynb", False),
+    ]:
+        destination = ROOT / relative
+        write_notebook(destination, notebook(solution))
+        print(destination.relative_to(ROOT))
 
 
 if __name__ == "__main__":

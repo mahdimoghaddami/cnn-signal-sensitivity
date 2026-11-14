@@ -295,7 +295,7 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path, monkeypatch):
     archive_path = pkg.package_student(tmp_path / "student.zip")
     with ZipFile(archive_path) as archive:
         names = archive.namelist()
-        assert "notebooks/01_cnn_signal_sensitivity.ipynb" in names
+        assert "notebooks/visual_computing_lab.ipynb" in names
         assert "README.md" in names
         assert "src/cnn_signal_sensitivity/checks.py" in names
         assert names.count("assignment.pdf") == 1
@@ -303,8 +303,8 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path, monkeypatch):
             name.startswith(("instructor/", "data/", "tests/", "scripts/")) for name in names
         )
         assert (
-            "INSTRUCTOR COPY"
-            not in archive.read("notebooks/01_cnn_signal_sensitivity.ipynb").decode()
+            "Instructor copy: includes completed implementations."
+            not in archive.read("notebooks/visual_computing_lab.ipynb").decode()
         )
     assert (ROOT / "uv.lock").is_file()
 
@@ -312,13 +312,13 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path, monkeypatch):
     fake_root = tmp_path / "repo"
     (fake_root / "src/cnn_signal_sensitivity").mkdir(parents=True)
     (fake_root / "notebooks").mkdir()
-    (fake_root / "docs/typst").mkdir(parents=True)
+    (fake_root / "docs/latex").mkdir(parents=True)
     for rel in ["pyproject.toml", "uv.lock", ".python-version", ".gitignore"]:
         (fake_root / rel).write_text("x", encoding="utf-8")
-    (fake_root / "notebooks/01_cnn_signal_sensitivity.ipynb").write_text("{}", encoding="utf-8")
+    (fake_root / "notebooks/visual_computing_lab.ipynb").write_text("{}", encoding="utf-8")
     (fake_root / "src/cnn_signal_sensitivity/__init__.py").write_text("", encoding="utf-8")
     (fake_root / "docs/STUDENT_README.md").write_text("readme", encoding="utf-8")
-    (fake_root / "docs/typst/lab_instructions.pdf").write_bytes(b"%PDF-1.4")
+    (fake_root / "docs/latex/lab_instructions.pdf").write_bytes(b"%PDF-1.4")
     monkeypatch.setattr(pkg, "ROOT", fake_root)
     pdf_archive = pkg.package_student(tmp_path / "student_with_pdf.zip")
     with ZipFile(pdf_archive) as archive:
@@ -460,10 +460,12 @@ def test_expanded_instructor_demonstrations():
     assert "sigmas = [0.5, 1, 2, 4]" in demos["gaussian_smooth"]
     assert "amounts = [0.25, 0.5, 1, 2]" in demos["laplacian_sharpen"]
     assert "grayscale_input" in demos["image_histogram"]
-    assert "histogram_equalize(demo_output)" in demos["histogram_equalize"]
+    assert "histogram_equalize(demo_input)" in demos["histogram_equalize"]
+    assert "twice_equalized" not in demos["histogram_equalize"]
     comparison = next(
         cell.source
         for cell in notebook(True).cells
         if "histogram-comparison" in cell.metadata.get("tags", [])
     )
-    assert "image_histogram(twice_equalized)" in comparison
+    assert "image_histogram(demo_output)" in comparison
+    assert "twice_equalized" not in comparison

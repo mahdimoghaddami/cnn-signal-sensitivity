@@ -1,7 +1,7 @@
 # From Pixels to Predictions
 
 Read the lab instructions (`ASSIGNMENT.md` or the included PDF) and complete
-`notebooks/01_cnn_signal_sensitivity.ipynb`.
+`notebooks/visual_computing_lab.ipynb`.
 
 ~~~powershell
 uv sync --locked
@@ -17,5 +17,5 @@ Implement the six operators and the histogram helper (seven exercises), then run
 comparisons. The lab always uses the same 200 images and saves to `outputs/lab/`; reruns
 replace those exports. Copy the folder if you want to preserve an earlier result.
 
-Submit the executed notebook, `outputs/lab/`, and `data/lab_subset.json`.
-Do not submit `.venv`, images, or model weights. Instructor solutions are not included.
+Submit only the executed notebook (`notebooks/visual_computing_lab.ipynb`).
+Do not submit `.venv`, `outputs/`, `data/`, images, or model weights. Instructor solutions are not included.
