@@ -1,38 +1,62 @@
 \documentclass[11pt,letterpaper]{article}
 
-\usepackage[margin=0.8in]{geometry}
+\usepackage[margin=0.78in,headheight=15pt]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{newpxtext}
+\usepackage{newpxmath}
+\usepackage[scaled=0.90]{inconsolata}
 \usepackage{microtype}
 \DisableLigatures{encoding = *, family = tt*}
-\usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{tabularx}
 \usepackage{caption}
 \usepackage{enumitem}
 \usepackage{float}
 \usepackage{graphicx}
 \usepackage{needspace}
-\usepackage{xcolor}
+\usepackage[table]{xcolor}
+\usepackage[most]{tcolorbox}
 \usepackage{parskip}
 \usepackage{titlesec}
 \usepackage{upquote}
 \usepackage{fancyhdr}
-\usepackage[colorlinks=true,urlcolor=accent,linkcolor=accent]{hyperref}
 
-\captionsetup{font=small,labelfont=bf}
+\definecolor{primary}{HTML}{0F4C5C}
+\definecolor{accent}{HTML}{137C8B}
+\definecolor{bannerbg}{HTML}{F0F7F9}
+\definecolor{calloutbg}{HTML}{F4F9FA}
+\definecolor{codebg}{HTML}{F1F5F9}
+\definecolor{codeborder}{HTML}{CBD5E1}
+\definecolor{figborder}{HTML}{DCE4EC}
+\definecolor{rowalt}{HTML}{F8FAFC}
+\definecolor{muted}{HTML}{475569}
+\definecolor{rulecol}{HTML}{CBD5E1}
+
+\usepackage[colorlinks=true,urlcolor=accent,linkcolor=accent]{hyperref}
+\pdfstringdefDisableCommands{\def\code#1{#1}}
+
+\captionsetup{font=small,labelfont={bf,color=primary},skip=4pt}
 \graphicspath{{figures/}{docs/latex/figures/}}
 
-\definecolor{accent}{HTML}{137C8B}
-\definecolor{muted}{HTML}{4A5568}
-\definecolor{codebg}{HTML}{F7FAFC}
-\definecolor{rulecol}{HTML}{CBD5E0}
+\titleformat{\section}
+  {\large\bfseries\color{primary}}
+  {\thesection.}
+  {0.5em}
+  {}
+  [\vspace{-0.45em}\color{accent!40}\rule{\linewidth}{0.6pt}]
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{primary}}
+  {\thesubsection}
+  {0.5em}
+  {}
 
-\titleformat{\section}{\large\bfseries\color{accent}}{\thesection.}{0.5em}{}[\vspace{-0.4em}\color{rulecol}\rule{\linewidth}{0.5pt}]
-\titleformat{\subsection}{\normalsize\bfseries\color{black}}{\thesubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{0.75em}{0.35em}
+\titlespacing*{\subsection}{0pt}{0.55em}{0.2em}
 
-\setlist[itemize]{leftmargin=1.4em,itemsep=0.25em,topsep=0.25em}
-\setlist[enumerate]{leftmargin=1.6em,itemsep=0.3em,topsep=0.25em}
+\setlist[itemize]{leftmargin=1.4em,itemsep=0.18em,topsep=0.15em}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=0.22em,topsep=0.18em}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -40,22 +64,109 @@
 \rhead{\small\color{muted}From Pixels to Predictions}
 \cfoot{\small\color{muted}\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\color{rulecol}\hrule width\headwidth height\headrulewidth \vskip-\headrulewidth}
 
-\newcommand{\code}[1]{\texttt{#1}}
-\newenvironment{codeblock}
-  {\par\vspace{0.3em}\noindent\begingroup\small\ttfamily
-   \begin{center}\begin{minipage}{0.96\linewidth}\raggedright}
-  {\end{minipage}\end{center}\endgroup\vspace{0.3em}}
+\newcommand{\code}[1]{\texttt{\textcolor{primary}{#1}}}
+\newcommand{\codelink}[2]{\href{#1}{\texttt{#2}}}
+
+\newtcolorbox{codeblock}{
+  enhanced,
+  colback=codebg,
+  colframe=codeborder,
+  borderline west={2.5pt}{0pt}{accent},
+  arc=2.5pt,
+  boxrule=0.4pt,
+  left=8pt,
+  right=8pt,
+  top=5pt,
+  bottom=5pt,
+  fontupper=\small\ttfamily,
+  before skip=0.3em,
+  after skip=0.45em,
+}
+
+\newtcolorbox{calloutbox}[1][]{
+  enhanced,
+  colback=calloutbg,
+  colframe=calloutbg,
+  borderline west={2.5pt}{0pt}{accent},
+  arc=2pt,
+  boxrule=0pt,
+  left=8pt,
+  right=8pt,
+  top=5pt,
+  bottom=5pt,
+  before skip=0.35em,
+  after skip=0.45em,
+  #1
+}
+
+\newcommand{\evalbadge}[1]{%
+  \par\vspace{0.15em}\noindent%
+  \tcbox[
+    on line,
+    boxsep=2pt,
+    left=6pt,
+    right=6pt,
+    top=2pt,
+    bottom=2pt,
+    colback=bannerbg,
+    colframe=accent!35,
+    boxrule=0.4pt,
+    arc=2pt
+  ]{\small #1}%
+  \par\vspace{0.2em}%
+}
+
+\newcommand{\figcard}[1]{%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=white,
+    colframe=figborder,
+    boxrule=0.5pt,
+    arc=3pt,
+    left=5pt,
+    right=5pt,
+    top=5pt,
+    bottom=5pt,
+    before skip=0.15em,
+    after skip=0.25em
+  ]
+    \centering
+    #1
+  \end{tcolorbox}%
+}
 
 \begin{document}
 
-\begin{center}
-  {\small\bfseries\color{accent} CSI 5550 -- VISUAL COMPUTING \quad|\quad LABORATORY ASSIGNMENT}\\[0.4em]
-  {\LARGE\bfseries From Pixels to Predictions}\\[0.25em]
-  {\normalsize\color{muted} Measuring CNN Sensitivity to Classical Image Processing Operators}
-\end{center}
-\vspace{0.2em}
-\noindent\color{rulecol}\rule{\linewidth}{0.8pt}\color{black}
+\begin{tcolorbox}[
+  enhanced,
+  colback=bannerbg,
+  colframe=accent!35,
+  borderline west={4pt}{0pt}{primary},
+  arc=3pt,
+  boxrule=0.5pt,
+  left=12pt,
+  right=12pt,
+  top=8pt,
+  bottom=8pt,
+  before skip=0pt,
+  after skip=0.45em
+]
+  {\small\bfseries\color{accent} CSI 5550 \enspace\textperiodcentered\enspace VISUAL COMPUTING \enspace\textperiodcentered\enspace LABORATORY ASSIGNMENT}\\[0.25em]
+  {\fontsize{19}{22}\selectfont\bfseries\color{primary} From Pixels to Predictions}\\[0.15em]
+  {\normalsize\color{muted} Measuring CNN Sensitivity to Classical Image Processing Operators}\\[0.35em]
+  {\color{accent!30}\hrule height 0.5pt}\vspace{0.35em}
+  {\renewcommand{\arraystretch}{1.08}%
+  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lll@{}}
+    {\scriptsize\bfseries\color{accent} CLASSIFIER} &
+    {\scriptsize\bfseries\color{accent} DATASET} &
+    {\scriptsize\bfseries\color{accent} SUBMISSION} \\
+    {\footnotesize ResNet-18 (\code{IMAGENET1K\_V1})} &
+    {\footnotesize 200 Imagenette Images} &
+    {\footnotesize\code{visual\_computing\_lab.ipynb}}
+  \end{tabular*}}
+\end{tcolorbox}
 
 \section{Overview and Experimental Setup}
 
@@ -69,9 +180,9 @@ In this laboratory, you will implement six classical image processing operators-
 
 \subsection{Quick Start}
 This project uses \code{uv} for environment and package management. If \code{uv} is not installed yet, follow \href{https://docs.astral.sh/uv/getting-started/installation/}{the official \code{uv} installation guide} or run the standalone installer for your platform:
-\begin{itemize}[itemsep=0.15em,topsep=0.1em,parsep=0pt]
+\begin{itemize}[itemsep=0.12em,topsep=0.08em,parsep=0pt]
   \item \textbf{macOS / Linux:} {\small\code{curl -LsSf https://astral.sh/uv/install.sh | sh}}
-  \item \textbf{Windows (PowerShell):}\\[-0.2em]
+  \item \textbf{Windows (PowerShell):}\\[-0.15em]
     {\small\code{powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"}}
 \end{itemize}
 After installing \code{uv} (restart your terminal if needed), run these commands from the project root directory to synchronize the environment, cache the dataset and weights once, and open JupyterLab (select the project's \code{.venv} kernel):
@@ -99,11 +210,14 @@ Unless noted otherwise, every function you implement must satisfy:
 \subsection{A. Image Sampling and Nearest-Neighbor Interpolation (\code{sample\_image})}
 Subsample spatially (reduce resolution by keeping only a subset of pixels) by taking every $s$-th row and column (starting at index $0$) for positive integer \code{factor} $s \ge 1$. Reconstruct the original $(H, W)$ spatial dimensions via \textbf{nearest-neighbor interpolation} (filling each output pixel with the value of the closest retained sample) by repeating each retained sample $s$ times along height and width, then cropping any excess rows or columns back to $(H, W)$. When $s = 1$, reproduce the input unchanged.
 
-\textbf{Design note:} \textbf{Anti-aliasing} (pre-smoothing an image before subsampling to prevent fine, high-frequency patterns from folding into false jagged or stair-step artifacts known as \textbf{aliasing}) is intentionally omitted here so you can observe aliasing and high-frequency detail loss directly. \textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$.
+\begin{calloutbox}
+  \small\textbf{Design note:} \textbf{Anti-aliasing} (pre-smoothing an image before subsampling to prevent fine, high-frequency patterns from folding into false jagged or stair-step artifacts known as \textbf{aliasing}) is intentionally omitted here so you can observe aliasing and high-frequency detail loss directly.
+\end{calloutbox}
+
+\evalbadge{\textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$}
 
 \begin{figure}[H]
-  \centering
-  \includegraphics[width=\linewidth]{demo_sample_image.png}
+  \figcard{\includegraphics[width=\linewidth]{demo_sample_image.png}}
   \caption{Input image and expected \code{sample\_image} outputs for factors $s \in \{2, 4, 8, 16\}$.}
 \end{figure}
 
@@ -112,28 +226,30 @@ Reduce per-channel intensity precision (\textbf{quantization}: mapping continuou
 \[
   Q_b(x) = \frac{\mathrm{round}\!\left((2^b - 1)\,x\right)}{2^b - 1}.
 \]
-This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 8-bit image samples when $b = 8$. \textbf{Evaluated settings:} $b \in \{8, 6, 4, 3, 2, 1\}$ bits/channel.
+This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 8-bit image samples when $b = 8$.
+
+\evalbadge{\textbf{Evaluated settings:} $b \in \{8, 6, 4, 3, 2, 1\}$ bits/channel}
 
 \begin{figure}[H]
-  \centering
-  \includegraphics[width=\linewidth]{demo_quantize.png}
+  \figcard{\includegraphics[width=\linewidth]{demo_quantize.png}}
   \caption{Input image and expected \code{quantize} outputs for $b \in \{6, 4, 2, 1\}$ bits per channel.}
 \end{figure}
 
 \subsection{C. Affine Geometric Transformation (\code{affine\_rotation})}
 Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} (for each pixel location in the \emph{output} image, computing where it came from in the \emph{input} image so every output pixel receives a value without gaps) and \textbf{bilinear interpolation} (computing a distance-weighted average of the four surrounding input pixels when a mapped coordinate lands between integer grid locations), keeping the $(H, W)$ canvas fixed. Outside regions beyond the source image bounds $[0, W-1] \times [0, H-1]$ must be filled with neutral gray ($0.5$) (treating out-of-bounds source samples as $0.5$ during interpolation), with final outputs \textbf{clamped} (restricted so values below $0$ become $0$ and values above $1$ become $1$) to $[0, 1]$. When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
 
-\textbf{Coordinate conventions:}
-Let $x \in \{0, \dots, W-1\}$ increase rightward and $y \in \{0, \dots, H-1\}$ increase downward, with image center $(c_x, c_y) = \bigl((W-1)/2,\,(H-1)/2\bigr)$. For each centered output coordinate $(\hat{x}, \hat{y}) = (x - c_x,\, y - c_y)$, compute the source location in pixel coordinates:
-\[
-  x_s = \hat{x}\cos\theta - \hat{y}\sin\theta + c_x, \qquad
-  y_s = \hat{x}\sin\theta + \hat{y}\cos\theta + c_y.
-\]
-\textbf{Evaluated settings:} $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$.
+\begin{calloutbox}
+  \small\textbf{Coordinate conventions:} Let $x \in \{0, \dots, W-1\}$ increase rightward and $y \in \{0, \dots, H-1\}$ increase downward, with image center $(c_x, c_y) = \bigl((W-1)/2,\,(H-1)/2\bigr)$. For each centered output coordinate $(\hat{x}, \hat{y}) = (x - c_x,\, y - c_y)$, compute the source location in pixel coordinates:
+  \[
+    x_s = \hat{x}\cos\theta - \hat{y}\sin\theta + c_x, \qquad
+    y_s = \hat{x}\sin\theta + \hat{y}\cos\theta + c_y.
+  \]
+\end{calloutbox}
+
+\evalbadge{\textbf{Evaluated settings:} $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$}
 
 \begin{figure}[H]
-  \centering
-  \includegraphics[width=\linewidth]{demo_affine_rotation.png}
+  \figcard{\includegraphics[width=\linewidth]{demo_affine_rotation.png}}
   \caption{Input image and expected \code{affine\_rotation} outputs for $\theta \in \{-45^\circ, -20^\circ, +20^\circ, +45^\circ\}$.}
 \end{figure}
 
@@ -141,8 +257,7 @@ Let $x \in \{0, \dots, W-1\}$ increase rightward and $y \in \{0, \dots, H-1\}$ i
 Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). You will use this function to plot the input and equalized histograms on shared axes.
 
 \begin{figure}[H]
-  \centering
-  \includegraphics[width=0.88\linewidth]{demo_image_histogram.png}
+  \figcard{\includegraphics[width=0.92\linewidth]{demo_image_histogram.png}}
   \caption{Input RGB image, mean grayscale intensity $I = (R+G+B)/3$, and expected 256-bin histogram counts from \code{image\_histogram}.}
 \end{figure}
 
@@ -154,12 +269,16 @@ Redistribute grayscale intensities independently for each image using its 256-bi
 \]
 where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clamped (restricted) to $[0, 1]$. Replicate the equalized intensity across all three RGB channels so the output shape is $(B, 3, H, W)$.
 
-\textbf{Experimental control:} Because equalization removes color as well as changing contrast, Section 4 evaluates both \code{grayscale} (arithmetic RGB mean replicated to 3 channels) and \code{equalized} to isolate contrast redistribution from color removal.
+\begin{calloutbox}
+  \small\textbf{Experimental control:} Because equalization removes color as well as changing contrast, Section 4 evaluates both \code{grayscale} (arithmetic RGB mean replicated to 3 channels) and \code{equalized} to isolate contrast redistribution from color removal.
+\end{calloutbox}
 
 \begin{figure}[H]
-  \centering
-  \includegraphics[width=0.54\linewidth]{demo_histogram_equalize.png}\\[3pt]
-  \includegraphics[width=0.68\linewidth]{histogram_comparison.png}
+  \figcard{%
+    \includegraphics[width=0.72\linewidth]{demo_histogram_equalize.png}\\[6pt]
+    {\color{figborder}\rule{0.92\linewidth}{0.5pt}}\\[6pt]
+    \includegraphics[width=0.88\linewidth]{histogram_comparison.png}%
+  }
   \caption{Top: input image and expected \code{histogram\_equalize} output. Bottom: corresponding 256-bin intensity histograms.}
 \end{figure}
 
@@ -168,11 +287,12 @@ Attenuate rapid pixel-to-pixel intensity variations (\textbf{high-frequency deta
 \[
   K(x, y) = e^{-\frac{x^2 + y^2}{2\sigma^2}}, \quad x, y \in \{-r, \dots, r\},
 \]
-and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders by $r$ pixels using \textbf{reflection padding} (extending the image boundary by mirroring interior pixel values across the edge so the filter window has valid neighbors at border pixels without introducing artificial dark or bright seams), filter each RGB channel independently, and \textbf{clamp} (restrict) outputs to $[0, 1]$. \textbf{Evaluated settings:} $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels.
+and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders by $r$ pixels using \textbf{reflection padding} (extending the image boundary by mirroring interior pixel values across the edge so the filter window has valid neighbors at border pixels without introducing artificial dark or bright seams), filter each RGB channel independently, and \textbf{clamp} (restrict) outputs to $[0, 1]$.
+
+\evalbadge{\textbf{Evaluated settings:} $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels}
 
 \begin{figure}[H]
-  \centering
-  \includegraphics[width=\linewidth]{demo_gaussian_smooth.png}
+  \figcard{\includegraphics[width=\linewidth]{demo_gaussian_smooth.png}}
   \caption{Input image and expected \code{gaussian\_smooth} outputs for $\sigma \in \{0.5, 1, 2, 4\}$ pixels.}
 \end{figure}
 
@@ -185,50 +305,59 @@ For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a c
 \[
   g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right),
 \]
-where $\mathrm{clamp}(v, 0, 1)$ restricts values below $0$ to $0$ and values above $1$ to $1$ (also called \emph{clipping}). Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and clip only after subtracting from the original image. \textbf{Evaluated settings:} $a \in \{0, 0.25, 0.5, 1, 2\}$.
+where $\mathrm{clamp}(v, 0, 1)$ restricts values below $0$ to $0$ and values above $1$ to $1$ (also called \emph{clipping}). Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and clip only after subtracting from the original image.
+
+\evalbadge{\textbf{Evaluated settings:} $a \in \{0, 0.25, 0.5, 1, 2\}$}
 
 \begin{figure}[H]
-  \centering
-  \includegraphics[width=\linewidth]{demo_laplacian_sharpen.png}
+  \figcard{\includegraphics[width=\linewidth]{demo_laplacian_sharpen.png}}
   \caption{Input image and expected \code{laplacian\_sharpen} outputs for sharpening amounts $a \in \{0.25, 0.5, 1, 2\}$.}
 \end{figure}
 
+\needspace{11\baselineskip}
 \subsection{Helpful PyTorch Functions (Optional)}
+\begin{calloutbox}[breakable]
 You are encouraged to explore any vectorized PyTorch design that satisfies the specifications above. The functions below are optional building blocks you can check out---click any name to open its official PyTorch documentation, or use another approach if you prefer:
 \begin{itemize}\raggedright
   \item \textbf{Sampling \& shape manipulation:}
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.repeat_interleave.html}{\code{torch.repeat\_interleave}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.repeat.html}{\code{torch.Tensor.repeat}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.expand.html}{\code{torch.Tensor.expand}}.
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.repeat_interleave.html}{torch.repeat\_interleave},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.repeat.html}{torch.Tensor.repeat},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.expand.html}{torch.Tensor.expand}.
   \item \textbf{Rounding \& value bounds:}
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.round.html}{\code{torch.round}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.clamp.html}{\code{torch.clamp}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.floor.html}{\code{torch.floor}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.ceil.html}{\code{torch.ceil}}.
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.round.html}{torch.round},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.clamp.html}{torch.clamp},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.floor.html}{torch.floor},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.ceil.html}{torch.ceil}.
   \item \textbf{Coordinate grids \& warping:}
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.arange.html}{\code{torch.arange}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.meshgrid.html}{\code{torch.meshgrid}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html}{\code{torch.nn.functional.grid\_sample}}.
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.arange.html}{torch.arange},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.meshgrid.html}{torch.meshgrid},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html}{torch.nn.functional.grid\_sample}.
   \item \textbf{Histograms \& cumulative counts:}
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.bincount.html}{\code{torch.bincount}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.histc.html}{\code{torch.histc}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.cumsum.html}{\code{torch.cumsum}}.
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.bincount.html}{torch.bincount},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.histc.html}{torch.histc},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.cumsum.html}{torch.cumsum}.
   \item \textbf{Padding \& spatial filtering:}
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.pad.html}{\code{torch.nn.functional.pad}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.conv2d.html}{\code{torch.nn.functional.conv2d}},
-    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.unfold.html}{\code{torch.nn.functional.unfold}}.
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.pad.html}{torch.nn.functional.pad},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.conv2d.html}{torch.nn.functional.conv2d},
+    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.unfold.html}{torch.nn.functional.unfold}.
 \end{itemize}
+\end{calloutbox}
 
-\needspace{8\baselineskip}
+\needspace{12\baselineskip}
 \section{Evaluation, Analysis, and Discussion}
 
 Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 28 parameter settings across the five parameterized operators, plus the \code{grayscale} and \code{equalized} controls) via \code{run\_suite} and saves CSV, NPZ, JSON, and figure exports to \code{outputs/lab/}.
 
 \begin{table}[H]
   \centering\small
-  \begin{tabular}{@{}lll@{}}
+  \setlength{\aboverulesep}{0pt}
+  \setlength{\belowrulesep}{0pt}
+  \renewcommand{\arraystretch}{1.35}
+  \rowcolors{2}{rowalt}{white}
+  \begin{tabularx}{\linewidth}{@{}llX@{}}
     \toprule
-    \textbf{Family} & \textbf{Property Modified} & \textbf{Evaluated Conditions} \\
+    \rowcolor{bannerbg}
+    \textbf{\color{primary}Family} & \textbf{\color{primary}Property Modified} & \textbf{\color{primary}Evaluated Conditions} \\
     \midrule
     Baseline & Unmodified input & \code{clean} \\
     Sampling & Spatial resolution & Factor $s \in \{1, 2, 4, 8, 16\}$ \\
@@ -238,7 +367,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
     Gaussian smoothing & Low-pass spatial filtering & $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels \\
     Laplacian sharpening & High-frequency emphasis & Amount $a \in \{0, 0.25, 0.5, 1, 2\}$ \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
   \caption{The 31 conditions evaluated in Section 4.}
 \end{table}
 
@@ -266,21 +395,27 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
     \end{itemize}
 \end{enumerate}
 
-\needspace{7\baselineskip}
+\needspace{10\baselineskip}
 \section{Submission and Grading}
 
-Before submitting, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom and all figures, tables, and written responses are saved inside the notebook.
-
-\begin{itemize}
-  \item \textbf{Submit:} Only the completed and executed notebook file (\code{notebooks/visual\_computing\_lab.ipynb}).
-  \item \textbf{Do not submit:} \code{.venv/}, \code{outputs/}, \code{data/}, downloaded Imagenette image archives, cached model weights, or any other project files.
-\end{itemize}
+\begin{calloutbox}
+  Before submitting, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom and all figures, tables, and written responses are saved inside the notebook.
+  \begin{itemize}
+    \item \textbf{Submit:} Only the completed and executed notebook file (\code{notebooks/visual\_computing\_lab.ipynb}).
+    \item \textbf{Do not submit:} \code{.venv/}, \code{outputs/}, \code{data/}, downloaded Imagenette image archives, cached model weights, or any other project files.
+  \end{itemize}
+\end{calloutbox}
 
 \begin{table}[H]
   \centering\small
+  \setlength{\aboverulesep}{0pt}
+  \setlength{\belowrulesep}{0pt}
+  \renewcommand{\arraystretch}{1.35}
+  \rowcolors{2}{rowalt}{white}
   \begin{tabular}{@{}lr@{}}
     \toprule
-    \textbf{Component} & \textbf{Weight} \\
+    \rowcolor{bannerbg}
+    \textbf{\color{primary}Component} & \textbf{\color{primary}Weight} \\
     \midrule
     Operator correctness and mathematical understanding & 40\% \\
     Clear quantitative and visual comparisons & 25\% \\
