@@ -20,6 +20,7 @@
 \usepackage[table]{xcolor}
 \usepackage[most]{tcolorbox}
 \usepackage{parskip}
+\usepackage{setspace}
 \usepackage{titlesec}
 \usepackage{upquote}
 \usepackage{fancyhdr}
@@ -59,8 +60,9 @@
   {0.5em}
   {}
 
-\titlespacing*{\section}{0pt}{0.75em}{0.35em}
-\titlespacing*{\subsection}{0pt}{0.55em}{0.2em}
+\titlespacing*{\section}{0pt}{22pt}{10pt}
+\titlespacing*{\subsection}{0pt}{16pt}{7pt}
+\setstretch{1.10}
 \setcounter{secnumdepth}{1}
 \setlength{\intextsep}{7pt plus 2pt minus 2pt}
 \raggedbottom
@@ -198,6 +200,7 @@ In this laboratory, you will implement six classical image processing operators-
   \item \textbf{Dataset:} One fixed, class-balanced subset of 200 images (20 per class) from \code{imagenette2-320/val}, recorded in \code{data/lab\_subset.json}. Each image is provided to your functions as a $224 \times 224$ RGB tensor with floating-point pixel intensities in $[0, 1]$, and every condition is evaluated on the exact same 200 images.
 \end{itemize}
 
+\clearpage
 \subsection{Quick Start}
 This project uses \code{uv} for environment and package management. If \code{uv} is not installed yet, follow \href{https://docs.astral.sh/uv/getting-started/installation/}{the official \code{uv} installation guide} or run the standalone installer for your platform:
 \begin{itemize}[itemsep=0.12em,topsep=0.08em,parsep=0pt]
@@ -213,7 +216,6 @@ uv run --locked jupyter lab
 \end{codeblock}
 Open \code{notebooks/visual\_computing\_lab.ipynb}. Each exercise is followed immediately by a visual demonstration and a public unit check in \code{cnn\_signal\_sensitivity.checks}. The six operators are independent: you can implement and test them in any order, skip a function if you get stuck, and come back to it later (note that \code{histogram\_equalize} in D2 may optionally call \code{image\_histogram} from D1, and the full comparative evaluation in Section 4 runs once all operators are completed).
 
-\clearpage
 \section{General Operator Contract}
 
 Unless noted otherwise, every function you implement must satisfy:
@@ -225,6 +227,7 @@ Unless noted otherwise, every function you implement must satisfy:
   \item \textbf{Public checks:} Each exercise has its own unit check cell so you can verify that operator independently as soon as you write it. Passing the check confirms the core contract, though you should still consider edge cases such as non-square inputs, multi-image batches, and constant images.
 \end{enumerate}
 
+\clearpage
 \section{Operator Specifications (Seven Exercises)}
 
 \subsection{A. Image Sampling and Nearest-Neighbor Interpolation (\code{sample\_image})}
@@ -237,11 +240,10 @@ Subsample spatially (reduce resolution by keeping only a subset of pixels) by ta
 \evalbadge{\textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$}
 
 \begin{figure}[H]
-  \figcard{\includegraphics[width=\linewidth]{demo_sample_image.png}}
+  \figcard{\includegraphics[width=0.92\linewidth]{demo_sample_image.png}}
   \caption{Input image and expected \code{sample\_image} outputs for factors $s \in \{2, 4, 8, 16\}$.}
 \end{figure}
 
-\clearpage
 \subsection{B. Intensity Quantization (\code{quantize})}
 Reduce per-channel intensity precision (\textbf{quantization}: mapping continuous or fine brightness values to a smaller finite set of discrete levels) to $2^b$ uniformly spaced levels in $[0, 1]$ for integer \textbf{bit depth} $b \in \{1, 2, \dots, 8\}$ (where $b$ bits per color channel represent $2^b$ possible intensity levels):
 \[
@@ -252,10 +254,11 @@ This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 
 \evalbadge{\textbf{Evaluated settings:} $b \in \{8, 6, 4, 3, 2, 1\}$ bits/channel}
 
 \begin{figure}[H]
-  \figcard{\includegraphics[width=\linewidth]{demo_quantize.png}}
+  \figcard{\includegraphics[width=0.92\linewidth]{demo_quantize.png}}
   \caption{Input image and expected \code{quantize} outputs for $b \in \{6, 4, 2, 1\}$ bits per channel.}
 \end{figure}
 
+\clearpage
 \subsection{C. Affine Geometric Transformation (\code{affine\_rotation})}
 Rotate every image about its center by \code{angle} $\theta$ in degrees (positive means counterclockwise), keeping the $(H, W)$ canvas fixed. Use \textbf{inverse coordinate mapping}: find the input location for each output pixel. Use \textbf{bilinear interpolation}: a distance-weighted average of the four surrounding input samples. Treat out-of-bounds source samples as neutral gray ($0.5$) during interpolation, then \textbf{clamp} (restrict) the final output to $[0, 1]$. When $\theta = 0$, return a clone of \code{images}. Do not use a ready-made rotation helper.
 
@@ -322,6 +325,7 @@ Normalize so $\sum_{x, y} K(x, y) = 1$. Use \textbf{reflection padding} of $r$ p
   \caption{Input image and expected \code{gaussian\_smooth} outputs for $\sigma \in \{0.5, 1, 2, 4\}$ pixels.}
 \end{figure}
 
+\clearpage
 \subsection{F. Laplacian Sharpening (\code{laplacian\_sharpen})}
 Emphasize rapid intensity transitions using the four-neighbor Laplacian kernel $L$ and nonnegative sharpening strength \code{amount} $a$:
 \[
@@ -437,7 +441,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
   \setlength{\belowrulesep}{0pt}
   \renewcommand{\arraystretch}{1.35}
   \rowcolors{2}{rowalt}{white}
-  \begin{tabularx}{\linewidth}{Xr}
+  \begin{tabular}{lr}
     \toprule
     \rowcolor{bannerbg}
     \textbf{\color{primary}Component} & \textbf{\color{primary}Weight} \\
@@ -447,7 +451,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
     Explanation of results and limitations & 25\% \\
     Reproducible, readable notebook & 10\% \\
     \bottomrule
-  \end{tabularx}
+  \end{tabular}
   \caption{Grading breakdown.}
 \end{table}
 
