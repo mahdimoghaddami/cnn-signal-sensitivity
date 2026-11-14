@@ -11,6 +11,7 @@
 \DisableLigatures{encoding = *, family = tt*}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{ragged2e}
 \usepackage{caption}
 \usepackage{enumitem}
 \usepackage{float}
@@ -35,9 +36,15 @@
 \definecolor{rulecol}{HTML}{CBD5E1}
 
 \usepackage[colorlinks=true,urlcolor=accent,linkcolor=accent]{hyperref}
+\hypersetup{
+  pdftitle={From Pixels to Predictions},
+  pdfsubject={CSI 5550 Visual Computing laboratory assignment},
+  pdfkeywords={image processing, PyTorch, CNN, Imagenette},
+  bookmarksnumbered=true
+}
 \pdfstringdefDisableCommands{\def\code#1{#1}}
 
-\captionsetup{font=small,labelfont={bf,color=primary},skip=4pt}
+\captionsetup{font=small,labelfont={bf,color=primary},skip=4pt,justification=raggedright}
 \graphicspath{{figures/}{docs/latex/figures/}}
 
 \titleformat{\section}
@@ -45,7 +52,7 @@
   {\thesection.}
   {0.5em}
   {}
-  [\vspace{-0.45em}\color{accent!40}\rule{\linewidth}{0.6pt}]
+  [\vspace{0.15ex}{\color{accent!40}\titlerule[0.6pt]}]
 \titleformat{\subsection}
   {\normalsize\bfseries\color{primary}}
   {\thesubsection}
@@ -54,6 +61,11 @@
 
 \titlespacing*{\section}{0pt}{0.75em}{0.35em}
 \titlespacing*{\subsection}{0pt}{0.55em}{0.2em}
+\setcounter{secnumdepth}{1}
+\setlength{\intextsep}{7pt plus 2pt minus 2pt}
+\raggedbottom
+\clubpenalty=10000
+\widowpenalty=10000
 
 \setlist[itemize]{leftmargin=1.4em,itemsep=0.18em,topsep=0.15em}
 \setlist[enumerate]{leftmargin=1.6em,itemsep=0.22em,topsep=0.18em}
@@ -64,7 +76,15 @@
 \rhead{\small\color{muted}From Pixels to Predictions}
 \cfoot{\small\color{muted}\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
-\renewcommand{\headrule}{\color{rulecol}\hrule width\headwidth height\headrulewidth \vskip-\headrulewidth}
+\renewcommand{\headrule}{{\color{rulecol}\hrule width\headwidth height\headrulewidth \vskip-\headrulewidth}}
+% Keep the running header on pages that LaTeX assigns the plain style.
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyhead[L]{\small\color{muted}CSI 5550 -- Visual Computing}
+  \fancyhead[R]{\small\color{muted}From Pixels to Predictions}
+  \fancyfoot[C]{\small\color{muted}\thepage}
+  \renewcommand{\headrulewidth}{0.4pt}
+}
 
 \newcommand{\code}[1]{\texttt{\textcolor{primary}{#1}}}
 \newcommand{\codelink}[2]{\href{#1}{\texttt{#2}}}
@@ -193,7 +213,7 @@ uv run --locked jupyter lab
 \end{codeblock}
 Open \code{notebooks/visual\_computing\_lab.ipynb}. Each exercise is followed immediately by a visual demonstration and a public unit check in \code{cnn\_signal\_sensitivity.checks}. The six operators are independent: you can implement and test them in any order, skip a function if you get stuck, and come back to it later (note that \code{histogram\_equalize} in D2 may optionally call \code{image\_histogram} from D1, and the full comparative evaluation in Section 4 runs once all operators are completed).
 
-\newpage
+\clearpage
 \section{General Operator Contract}
 
 Unless noted otherwise, every function you implement must satisfy:
@@ -221,6 +241,7 @@ Subsample spatially (reduce resolution by keeping only a subset of pixels) by ta
   \caption{Input image and expected \code{sample\_image} outputs for factors $s \in \{2, 4, 8, 16\}$.}
 \end{figure}
 
+\clearpage
 \subsection{B. Intensity Quantization (\code{quantize})}
 Reduce per-channel intensity precision (\textbf{quantization}: mapping continuous or fine brightness values to a smaller finite set of discrete levels) to $2^b$ uniformly spaced levels in $[0, 1]$ for integer \textbf{bit depth} $b \in \{1, 2, \dots, 8\}$ (where $b$ bits per color channel represent $2^b$ possible intensity levels):
 \[
@@ -236,7 +257,7 @@ This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 
 \end{figure}
 
 \subsection{C. Affine Geometric Transformation (\code{affine\_rotation})}
-Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} (for each pixel location in the \emph{output} image, computing where it came from in the \emph{input} image so every output pixel receives a value without gaps) and \textbf{bilinear interpolation} (computing a distance-weighted average of the four surrounding input pixels when a mapped coordinate lands between integer grid locations), keeping the $(H, W)$ canvas fixed. Outside regions beyond the source image bounds $[0, W-1] \times [0, H-1]$ must be filled with neutral gray ($0.5$) (treating out-of-bounds source samples as $0.5$ during interpolation), with final outputs \textbf{clamped} (restricted so values below $0$ become $0$ and values above $1$ become $1$) to $[0, 1]$. When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
+Rotate every image about its center by \code{angle} $\theta$ in degrees (positive means counterclockwise), keeping the $(H, W)$ canvas fixed. Use \textbf{inverse coordinate mapping}: find the input location for each output pixel. Use \textbf{bilinear interpolation}: a distance-weighted average of the four surrounding input samples. Treat out-of-bounds source samples as neutral gray ($0.5$) during interpolation, then \textbf{clamp} (restrict) the final output to $[0, 1]$. When $\theta = 0$, return a clone of \code{images}. Do not use a ready-made rotation helper.
 
 \begin{calloutbox}
   \small\textbf{Coordinate conventions:} Let $x \in \{0, \dots, W-1\}$ increase rightward and $y \in \{0, \dots, H-1\}$ increase downward, with image center $(c_x, c_y) = \bigl((W-1)/2,\,(H-1)/2\bigr)$. For each centered output coordinate $(\hat{x}, \hat{y}) = (x - c_x,\, y - c_y)$, compute the source location in pixel coordinates:
@@ -253,12 +274,13 @@ Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in de
   \caption{Input image and expected \code{affine\_rotation} outputs for $\theta \in \{-45^\circ, -20^\circ, +20^\circ, +45^\circ\}$.}
 \end{figure}
 
+\clearpage
 \subsection{D1. Image Histogram (\code{image\_histogram})}
 Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). You will use this function to plot the input and equalized histograms on shared axes.
 
 \begin{figure}[H]
-  \figcard{\includegraphics[width=0.92\linewidth]{demo_image_histogram.png}}
-  \caption{Input RGB image, mean grayscale intensity $I = (R+G+B)/3$, and expected 256-bin histogram counts from \code{image\_histogram}.}
+  \figcard{\includegraphics[width=0.82\linewidth]{demo_image_histogram.png}}
+  \caption{RGB input, arithmetic-mean grayscale, and the 256-bin histogram from \code{image\_histogram}.}
 \end{figure}
 
 \subsection{D2. Histogram Equalization (\code{histogram\_equalize})}
@@ -267,7 +289,7 @@ Redistribute grayscale intensities independently for each image using its 256-bi
   T(k) = \frac{\mathrm{CDF}(k) - \mathrm{CDF}_{\min}}{HW - \mathrm{CDF}_{\min}}
   \;=\; \frac{\widetilde{\mathrm{CDF}}(k) - \widetilde{\mathrm{CDF}}_{\min}}{1 - \widetilde{\mathrm{CDF}}_{\min}},
 \]
-where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clamped (restricted) to $[0, 1]$. Replicate the equalized intensity across all three RGB channels so the output shape is $(B, 3, H, W)$.
+where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF. Clamp the mapped intensities to $[0, 1]$ and replicate them across all three RGB channels so the output shape is $(B, 3, H, W)$.
 
 \begin{calloutbox}
   \small\textbf{Experimental control:} Because equalization removes color as well as changing contrast, Section 4 evaluates both \code{grayscale} (arithmetic RGB mean replicated to 3 channels) and \code{equalized} to isolate contrast redistribution from color removal.
@@ -275,19 +297,23 @@ where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clam
 
 \begin{figure}[H]
   \figcard{%
-    \includegraphics[width=0.72\linewidth]{demo_histogram_equalize.png}\\[6pt]
-    {\color{figborder}\rule{0.92\linewidth}{0.5pt}}\\[6pt]
-    \includegraphics[width=0.88\linewidth]{histogram_comparison.png}%
+    \begin{minipage}[c]{0.44\linewidth}
+      \includegraphics[width=\linewidth]{demo_histogram_equalize.png}
+    \end{minipage}\hfill
+    \begin{minipage}[c]{0.54\linewidth}
+      \includegraphics[width=\linewidth]{histogram_comparison.png}
+    \end{minipage}%
   }
-  \caption{Top: input image and expected \code{histogram\_equalize} output. Bottom: corresponding 256-bin intensity histograms.}
+  \caption{Expected equalization: image pair (left) and corresponding 256-bin intensity histograms (right).}
 \end{figure}
 
+\clearpage
 \subsection{E. Gaussian Smoothing (\code{gaussian\_smooth})}
-Attenuate rapid pixel-to-pixel intensity variations (\textbf{high-frequency detail}) using a circularly symmetric (\textbf{isotropic}) 2-D Gaussian kernel with standard deviation \code{sigma} $\sigma \ge 0$ (in pixels). When $\sigma = 0$, return a clone of \code{images}. Otherwise set kernel radius $r = \lceil 3\sigma \rceil$ (raising \code{ValueError} if $r \ge \min(H, W)$), evaluate
+Smooth fine detail using a circularly symmetric (\textbf{isotropic}) 2-D Gaussian kernel with standard deviation \code{sigma} $\sigma \ge 0$ in pixels. When $\sigma = 0$, return a clone of \code{images}. Otherwise set radius $r = \lceil 3\sigma \rceil$ (raise \code{ValueError} if $r \ge \min(H, W)$) and evaluate
 \[
   K(x, y) = e^{-\frac{x^2 + y^2}{2\sigma^2}}, \quad x, y \in \{-r, \dots, r\},
 \]
-and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders by $r$ pixels using \textbf{reflection padding} (extending the image boundary by mirroring interior pixel values across the edge so the filter window has valid neighbors at border pixels without introducing artificial dark or bright seams), filter each RGB channel independently, and \textbf{clamp} (restrict) outputs to $[0, 1]$.
+Normalize so $\sum_{x, y} K(x, y) = 1$. Use \textbf{reflection padding} of $r$ pixels (mirror interior pixels across each border), filter each RGB channel independently, and clamp the output to $[0, 1]$.
 
 \evalbadge{\textbf{Evaluated settings:} $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels}
 
@@ -297,15 +323,13 @@ and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders by $r$ pixels using \tex
 \end{figure}
 
 \subsection{F. Laplacian Sharpening (\code{laplacian\_sharpen})}
-Emphasize rapid intensity transitions using the discrete four-neighbor Laplacian kernel:
+Emphasize rapid intensity transitions using the four-neighbor Laplacian kernel $L$ and nonnegative sharpening strength \code{amount} $a$:
 \[
-  L = \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}.
+  L = \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix},
+  \qquad
+  g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right).
 \]
-For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a clone), pad \code{images} by $1$ pixel on all sides using \textbf{reflection padding} (mirroring interior pixels across the border), filter each RGB channel independently to obtain the \textbf{signed} response $\nabla^2 f$ (retaining both positive and negative filter values rather than taking absolute values), and compute
-\[
-  g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right),
-\]
-where $\mathrm{clamp}(v, 0, 1)$ restricts values below $0$ to $0$ and values above $1$ to $1$ (also called \emph{clipping}). Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and clip only after subtracting from the original image.
+When $a = 0$, return a clone of \code{images}. Otherwise use one-pixel \textbf{reflection padding} and filter each RGB channel independently to obtain the \textbf{signed} response $\nabla^2 f$. Retain both positive and negative values; do not take $|\nabla^2 f|$. Subtract the scaled response from the original image, then \textbf{clip} values below $0$ to $0$ and above $1$ to $1$.
 
 \evalbadge{\textbf{Evaluated settings:} $a \in \{0, 0.25, 0.5, 1, 2\}$}
 
@@ -314,7 +338,7 @@ where $\mathrm{clamp}(v, 0, 1)$ restricts values below $0$ to $0$ and values abo
   \caption{Input image and expected \code{laplacian\_sharpen} outputs for sharpening amounts $a \in \{0.25, 0.5, 1, 2\}$.}
 \end{figure}
 
-\needspace{11\baselineskip}
+\clearpage
 \subsection{Helpful PyTorch Functions (Optional)}
 \begin{calloutbox}[breakable]
 You are encouraged to explore any vectorized PyTorch design that satisfies the specifications above. The functions below are optional building blocks you can check out---click any name to open its official PyTorch documentation, or use another approach if you prefer:
@@ -354,7 +378,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
   \setlength{\belowrulesep}{0pt}
   \renewcommand{\arraystretch}{1.35}
   \rowcolors{2}{rowalt}{white}
-  \begin{tabularx}{\linewidth}{@{}llX@{}}
+  \begin{tabularx}{\linewidth}{>{\RaggedRight\arraybackslash}p{0.23\linewidth}>{\RaggedRight\arraybackslash}p{0.25\linewidth}>{\RaggedRight\arraybackslash}X}
     \toprule
     \rowcolor{bannerbg}
     \textbf{\color{primary}Family} & \textbf{\color{primary}Property Modified} & \textbf{\color{primary}Evaluated Conditions} \\
@@ -380,6 +404,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
   \item \code{image\_mse\_mean}: Mean squared pixel difference between transformed and original images.
 \end{itemize}
 
+\clearpage
 \subsection{Prediction and Written Discussion}
 \begin{enumerate}
   \item \textbf{Before running Section 4:} After inspecting your visual demonstrations in Section 3, record your prediction in the notebook stating which operations and severities will alter ResNet-18 predictions most and why.
@@ -412,7 +437,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
   \setlength{\belowrulesep}{0pt}
   \renewcommand{\arraystretch}{1.35}
   \rowcolors{2}{rowalt}{white}
-  \begin{tabular}{@{}lr@{}}
+  \begin{tabularx}{\linewidth}{Xr}
     \toprule
     \rowcolor{bannerbg}
     \textbf{\color{primary}Component} & \textbf{\color{primary}Weight} \\
@@ -422,7 +447,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
     Explanation of results and limitations & 25\% \\
     Reproducible, readable notebook & 10\% \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
   \caption{Grading breakdown.}
 \end{table}
 

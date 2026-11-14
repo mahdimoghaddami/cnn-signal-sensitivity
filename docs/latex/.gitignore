@@ -1,0 +1,7 @@
+# Local LaTeX build files; keep the source and assignment PDF tracked.
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
