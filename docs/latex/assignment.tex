@@ -1,0 +1,221 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[margin=0.8in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\DisableLigatures{encoding = *, family = tt*}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{upquote}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{accent}{HTML}{137C8B}
+\definecolor{muted}{HTML}{4A5568}
+\definecolor{codebg}{HTML}{F7FAFC}
+\definecolor{rulecol}{HTML}{CBD5E0}
+
+\titleformat{\section}{\large\bfseries\color{accent}}{\thesection.}{0.5em}{}[\vspace{-0.4em}\color{rulecol}\rule{\linewidth}{0.5pt}]
+\titleformat{\subsection}{\normalsize\bfseries\color{black}}{\thesubsection}{0.5em}{}
+
+\setlist[itemize]{leftmargin=1.4em,itemsep=0.25em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=0.3em,topsep=0.25em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\color{muted}CSI 5550 -- Visual Computing}
+\rhead{\small\color{muted}From Pixels to Predictions}
+\cfoot{\small\color{muted}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newenvironment{codeblock}
+  {\par\vspace{0.3em}\noindent\begingroup\small\ttfamily
+   \begin{center}\begin{minipage}{0.96\linewidth}\raggedright}
+  {\end{minipage}\end{center}\endgroup\vspace{0.3em}}
+
+\begin{document}
+
+\begin{center}
+  {\small\bfseries\color{accent} CSI 5550 -- VISUAL COMPUTING \quad|\quad LABORATORY ASSIGNMENT}\\[0.4em]
+  {\LARGE\bfseries From Pixels to Predictions}\\[0.25em]
+  {\normalsize\color{muted} Measuring CNN Sensitivity to Classical Image Processing Operators}
+\end{center}
+\vspace{0.2em}
+\noindent\color{rulecol}\rule{\linewidth}{0.8pt}\color{black}
+
+\section{Overview and Experimental Setup}
+
+In this laboratory, you will implement six classical image processing operators---spatial sampling, intensity quantization, affine rotation, histogram equalization (with a histogram counter helper), Gaussian smoothing, and Laplacian sharpening---from first principles in PyTorch. You will then evaluate \textbf{your own implementations} as front-end transformations before a pre-trained convolutional neural network to measure how signal resolution, geometry, contrast, blur, and high-frequency emphasis change predictions and confidence.
+
+\subsection{Model, Data, and Pipeline}
+\begin{itemize}
+  \item \textbf{Classifier:} ResNet-18 loaded with TorchVision's published \code{IMAGENET1K\_V1} weights. No training or fine-tuning is performed. Logits are restricted to the 10 Imagenette categories (\textit{tench, English springer, cassette player, chain saw, church, French horn, garbage truck, gas pump, golf ball, parachute}), and confidence is the conditional 10-class softmax probability. Because Imagenette is derived from ImageNet, this lab is a controlled sensitivity study rather than an independent generalization benchmark.
+  \item \textbf{Dataset:} One fixed, class-balanced subset of 200 images (20 per class) from \code{imagenette2-320/val}, recorded in \code{data/lab\_subset.json}. Every condition is evaluated on the exact same 200 images.
+  \item \textbf{Preprocessing Order:} Each image is resized (shorter side 256, bilinear with antialiasing), center-cropped to $224 \times 224$, and scaled to RGB values in $[0, 1]$. Your operators run on these $[0, 1]$ RGB tensors; ImageNet mean/std normalization occurs afterward inside \code{RestrictedClassifier}. Do not modify the network or its normalization.
+\end{itemize}
+
+\subsection{Quick Start}
+From the project root directory, synchronize the environment, cache the dataset and weights once, and open JupyterLab (select the project's \code{.venv} kernel):
+\begin{quote}\small\ttfamily
+uv sync --locked\\
+uv run --locked cnn-signal-sensitivity prepare\\
+uv run --locked jupyter lab
+\end{quote}
+Open \code{notebooks/01\_cnn\_signal\_sensitivity.ipynb}; each exercise stub raises
+\code{NotImplementedError} until completed. Each exercise is followed immediately by a
+multi-parameter visual demonstration and a public check in \code{cnn\_signal\_sensitivity.checks}.
+
+\newpage
+\section{General Operator Contract}
+
+Unless noted otherwise, every function you implement must satisfy:
+\begin{enumerate}
+  \item \textbf{Input/output tensor contract:} Accept a batch \code{images} of shape $(B, 3, H, W)$ with floating-point RGB values in $[0, 1]$. Return a tensor with the exact same shape, \code{dtype}, and \code{device} (except \code{image\_histogram}, which returns \code{torch.long} counts of shape $(B, 256)$ on the input device).
+  \item \textbf{Immutability:} Never modify \code{images} in place; return a new tensor or clone when returning identity.
+  \item \textbf{Vectorized PyTorch:} Use PyTorch tensor operations rather than nested Python pixel loops (iterating over the batch dimension $B$ for per-image 1-D \code{torch.bincount} is fine).
+  \item \textbf{Parameter validation:} Raise \code{ValueError} for invalid arguments (e.g., non-positive or non-integer sampling factors, bit depths outside $[1, 8]$, non-finite angles, negative or non-finite filter strengths, or Gaussian kernel radius $\ge \min(H, W)$).
+  \item \textbf{Public checks:} Passing the supplied notebook checks is necessary to proceed, but not an exhaustive correctness proof---verify edge cases such as non-square inputs, multi-image batches, and constant images.
+\end{enumerate}
+
+\section{Operator Specifications (Seven Exercises)}
+
+\subsection{A. Image Sampling and Nearest-Neighbor Interpolation (\code{sample\_image})}
+Subsample spatially by keeping every $s$-th row and column (\code{images[:, :, ::factor, ::factor]}) for positive integer \code{factor} $s \ge 1$. Reconstruct the original $(H, W)$ spatial dimensions by repeating retained samples $s$ times along height and width, then cropping any excess rows or columns back to $(H, W)$. When $s = 1$, reproduce the input unchanged.
+
+\textbf{Design note:} Anti-aliasing smoothing before subsampling is intentionally omitted so you can observe aliasing and high-frequency detail loss directly. \textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$.
+
+\subsection{B. Intensity Quantization (\code{quantize})}
+Reduce per-channel intensity precision to $2^b$ uniformly spaced levels in $[0, 1]$ for integer bit depth $b \in \{1, 2, \dots, 8\}$:
+\[
+  Q_b(x) = \frac{\mathrm{round}\!\left((2^b - 1)\,x\right)}{2^b - 1}.
+\]
+This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 8-bit image samples when $b = 8$. \textbf{Evaluated settings:} $b \in \{8, 6, 4, 3, 2, 1\}$ bits/channel.
+
+\subsection{C. Affine Geometric Transformation (\code{affine\_rotation})}
+Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} and bilinear interpolation, keeping the $(H, W)$ canvas fixed and filling outside regions with neutral gray ($0.5$). When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
+
+\textbf{Coordinate and sampling conventions:}
+Let $x \in \{0, \dots, W-1\}$ increase rightward and $y \in \{0, \dots, H-1\}$ increase downward, with image center $(c_x, c_y) = \bigl((W-1)/2,\,(H-1)/2\bigr)$. For each centered output coordinate $(\hat{x}, \hat{y}) = (x - c_x,\, y - c_y)$, compute the source location in pixel coordinates:
+\[
+  x_s = \hat{x}\cos\theta - \hat{y}\sin\theta + c_x, \qquad
+  y_s = \hat{x}\sin\theta + \hat{y}\cos\theta + c_y.
+\]
+Convert $(x_s, y_s)$ to normalized \code{F.grid\_sample} coordinates in $[-1, 1]$ for \code{align\_corners=False}:
+\[
+  g_x = \frac{2(x_s + 0.5)}{W} - 1, \qquad
+  g_y = \frac{2(y_s + 0.5)}{H} - 1.
+\]
+To obtain the gray ($0.5$) fill outside the image boundary while using \code{padding\_mode="zeros"}, sample \code{images - 0.5} with \code{mode="bilinear"} and \code{align\_corners=False}, add \code{0.5} back, and clamp to $[0, 1]$. \textbf{Evaluated settings:} $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$.
+
+\subsection{D1. Image Histogram (\code{image\_histogram})}
+Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). Looping over the batch dimension $B$ with 1-D \code{torch.bincount(..., minlength=256)} is fine. You will use this function to plot input, equalized, and twice-equalized histograms on shared axes.
+
+\subsection{D2. Histogram Equalization (\code{histogram\_equalize})}
+Redistribute grayscale intensities independently for each image using its 256-bin histogram (you may call \code{image\_histogram}) and cumulative distribution $\mathrm{CDF}(k) = \sum_{j=0}^{k} h(j)$. Let $\mathrm{CDF}_{\min}$ be the cumulative count of the first occupied bin (smallest $k$ with $h(k) > 0$). If all pixels occupy a single bin ($\mathrm{CDF}(255) - \mathrm{CDF}_{\min} = 0$), preserve the constant grayscale intensity unchanged; otherwise map each pixel's bin $k$ through
+\[
+  T(k) = \frac{\mathrm{CDF}(k) - \mathrm{CDF}_{\min}}{HW - \mathrm{CDF}_{\min}}
+  \;=\; \frac{\widetilde{\mathrm{CDF}}(k) - \widetilde{\mathrm{CDF}}_{\min}}{1 - \widetilde{\mathrm{CDF}}_{\min}},
+\]
+where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clamped to $[0, 1]$. Replicate the equalized intensity across all three RGB channels so the output shape is $(B, 3, H, W)$.
+
+\textbf{Experimental control:} Because equalization removes color as well as changing contrast, Section 4 evaluates both \code{grayscale} (arithmetic RGB mean replicated to 3 channels) and \code{equalized} to isolate contrast redistribution from color removal.
+
+\subsection{E. Gaussian Smoothing (\code{gaussian\_smooth})}
+Attenuate high-frequency detail using an isotropic 2-D Gaussian kernel with standard deviation \code{sigma} $\sigma \ge 0$ (in pixels). When $\sigma = 0$, return a clone of \code{images}. Otherwise set kernel radius $r = \lceil 3\sigma \rceil$ (raising \code{ValueError} if $r \ge \min(H, W)$), evaluate
+\[
+  K(x, y) = \exp\!\left(-\frac{x^2 + y^2}{2\sigma^2}\right), \quad x, y \in \{-r, \dots, r\},
+\]
+and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders via
+\code{F.pad(images, (r, r, r, r), mode="reflect")} and filter each RGB channel independently
+with grouped \code{F.conv2d(..., groups=channels)}, clamping to $[0, 1]$. \textbf{Evaluated settings:}
+$\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels.
+
+\subsection{F. Laplacian Sharpening (\code{laplacian\_sharpen})}
+Emphasize rapid intensity transitions using the discrete four-neighbor Laplacian kernel:
+\[
+  L = \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}.
+\]
+For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a clone), pad \code{images} by $1$ pixel on all sides using \code{mode="reflect"}, filter each RGB channel independently with grouped \code{F.conv2d(..., groups=channels)} to obtain the \textbf{signed} response $\nabla^2 f$, and compute
+\[
+  g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right).
+\]
+Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and clip only after subtracting from the original image. \textbf{Evaluated settings:} $a \in \{0, 0.25, 0.5, 1, 2\}$.
+
+\section{Evaluation, Analysis, and Discussion}
+
+Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 28 parameter settings across the five parameterized operators, plus the \code{grayscale} and \code{equalized} controls) via \code{run\_suite} and saves CSV, NPZ, JSON, and figure exports to \code{outputs/lab/}.
+
+\begin{table}[h]
+  \centering\small
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Family} & \textbf{Property Modified} & \textbf{Evaluated Conditions} \\
+    \midrule
+    Baseline & Unmodified input & \code{clean} \\
+    Sampling & Spatial resolution & Factor $s \in \{1, 2, 4, 8, 16\}$ \\
+    Quantization & Intensity resolution & Bit depth $b \in \{8, 6, 4, 3, 2, 1\}$ \\
+    Affine rotation & Spatial orientation \& fill & Angle $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$ \\
+    Histogram equalization & Contrast \& color removal & \code{grayscale} control, \code{equalized} (256 bins) \\
+    Gaussian smoothing & Low-pass spatial filtering & $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels \\
+    Laplacian sharpening & High-frequency emphasis & Amount $a \in \{0, 0.25, 0.5, 1, 2\}$ \\
+    \bottomrule
+  \end{tabular}
+  \caption{The 31 conditions evaluated in Section 4.}
+\end{table}
+
+\subsection{Reported Metrics}
+\begin{itemize}
+  \item \code{accuracy\_pct}: Percentage of the 200 images classified correctly.
+  \item \code{drop\_pp}: Accuracy change in percentage points relative to the clean baseline ($\text{clean} - \text{condition}$).
+  \item \code{flip\_pct}: Percentage of images whose top-1 predicted class changed from the clean prediction (a flip may introduce an error or occasionally correct an initial error).
+  \item \code{confidence\_mean}: Mean predicted probability of the top-1 class across the 10 categories.
+  \item \code{image\_mse\_mean}: Mean squared pixel difference between transformed and original images.
+\end{itemize}
+
+\subsection{Prediction and Written Discussion}
+\begin{enumerate}
+  \item \textbf{Before running Section 4:} After inspecting your visual demonstrations in Section 3, record your prediction in the notebook stating which operations and severities will alter ResNet-18 predictions most and why.
+  \item \textbf{After running Section 4:} Inspect the galleries (\code{examples.png},
+    \code{filter\_examples.png}), accuracy curves (\code{accuracy.png}), and results table, then write
+    a concise analysis addressing:
+    \begin{itemize}
+      \item How spatial subsampling and intensity quantization affect predictions differently (compare accuracy drops, confidence, and pixel MSE).
+      \item How rotation, bilinear interpolation, border gray fill, and corner cropping affect visual evidence and accuracy.
+      \item Whether histogram equalization improves or degrades classification relative to the \code{grayscale} control.
+      \item How Gaussian smoothing and Laplacian sharpening affect fine texture, prediction confidence, and accuracy.
+      \item Which findings matched or surprised your expectations, supported by specific numbers and image examples, along with scope limitations (fixed 200-image sample, unmatched parameter severities across families, single pre-trained model).
+    \end{itemize}
+\end{enumerate}
+
+\section{Submission and Grading}
+
+Before packaging your submission, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom with saved outputs. Notice that rerunning replaces files in \code{outputs/lab/}; copy that directory elsewhere if you want to archive an earlier run.
+
+\begin{itemize}
+  \item \textbf{Submit:} Completed \code{notebooks/01\_cnn\_signal\_sensitivity.ipynb}, any added Python modules, \code{outputs/lab/}, and \code{data/lab\_subset.json}.
+  \item \textbf{Do not submit:} \code{.venv/}, downloaded Imagenette image archives, or cached model weights.
+\end{itemize}
+
+\begin{table}[h]
+  \centering\small
+  \begin{tabular}{@{}lr@{}}
+    \toprule
+    \textbf{Component} & \textbf{Weight} \\
+    \midrule
+    Operator correctness and mathematical understanding & 40\% \\
+    Clear quantitative and visual comparisons & 25\% \\
+    Explanation of results and limitations & 25\% \\
+    Reproducible, readable notebook & 10\% \\
+    \bottomrule
+  \end{tabular}
+  \caption{Grading breakdown.}
+\end{table}
+
+\end{document}

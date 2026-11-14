@@ -298,6 +298,7 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path, monkeypatch):
         assert "notebooks/01_cnn_signal_sensitivity.ipynb" in names
         assert "README.md" in names
         assert "src/cnn_signal_sensitivity/checks.py" in names
+        assert names.count("assignment.pdf") == 1
         assert not any(
             name.startswith(("instructor/", "data/", "tests/", "scripts/")) for name in names
         )

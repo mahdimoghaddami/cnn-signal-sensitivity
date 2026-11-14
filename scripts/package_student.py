@@ -20,8 +20,14 @@ def package_student(destination=None):
         ]
     ]
     files.extend(sorted((ROOT / "src/cnn_signal_sensitivity").glob("*.py")))
+    typst_pdf = ROOT / "docs/typst/assignment.pdf"
     pdfs = sorted((ROOT / "docs").rglob("*.pdf"))
-    instructions = pdfs if pdfs else [ROOT / "ASSIGNMENT.md"]
+    if typst_pdf.is_file():
+        instructions = [typst_pdf]
+    elif pdfs:
+        instructions = [pdfs[0]]
+    else:
+        instructions = [ROOT / "ASSIGNMENT.md"]
     if not all(file.is_file() for file in [*files, *instructions, ROOT / "docs/STUDENT_README.md"]):
         raise FileNotFoundError("Build notebooks and sync dependencies before packaging.")
     with ZipFile(destination, "w", ZIP_DEFLATED) as archive:
