@@ -61,11 +61,10 @@
 
 In this laboratory, you will implement six classical image processing operators---spatial sampling, intensity quantization, affine rotation, histogram equalization (with a histogram counter helper), Gaussian smoothing, and Laplacian sharpening---from first principles in PyTorch. You will then evaluate \textbf{your own implementations} as front-end transformations before a pre-trained convolutional neural network to measure how signal resolution, geometry, contrast, blur, and high-frequency emphasis change predictions and confidence.
 
-\subsection{Model, Data, and Pipeline}
+\subsection{Model and Dataset}
 \begin{itemize}
-  \item \textbf{Classifier:} ResNet-18 loaded with TorchVision's published \code{IMAGENET1K\_V1} weights. No training or fine-tuning is performed. Logits are restricted to the 10 Imagenette categories (\textit{tench, English springer, cassette player, chain saw, church, French horn, garbage truck, gas pump, golf ball, parachute}), and confidence is the conditional 10-class softmax probability. Because Imagenette is derived from ImageNet, this lab is a controlled sensitivity study rather than an independent generalization benchmark.
-  \item \textbf{Dataset:} One fixed, class-balanced subset of 200 images (20 per class) from \code{imagenette2-320/val}, recorded in \code{data/lab\_subset.json}. Every condition is evaluated on the exact same 200 images.
-  \item \textbf{Preprocessing Order:} Each image is resized (shorter side 256, bilinear with antialiasing), center-cropped to $224 \times 224$, and scaled to RGB values in $[0, 1]$. Your operators run on these $[0, 1]$ RGB tensors; ImageNet mean/std normalization occurs afterward inside \code{RestrictedClassifier}. Do not modify the network or its normalization.
+  \item \textbf{Classifier:} ResNet-18 loaded with TorchVision's published \code{IMAGENET1K\_V1} weights. No training or fine-tuning is performed. Model outputs are restricted to the 10 Imagenette categories (\textit{tench, English springer, cassette player, chain saw, church, French horn, garbage truck, gas pump, golf ball, parachute}), and confidence is the conditional 10-class softmax probability (the model's raw scores converted into probabilities that sum to $1$ across those 10 classes). Because Imagenette is derived from ImageNet, this lab is a controlled sensitivity study rather than an independent generalization benchmark.
+  \item \textbf{Dataset:} One fixed, class-balanced subset of 200 images (20 per class) from \code{imagenette2-320/val}, recorded in \code{data/lab\_subset.json}. Each image is provided to your functions as a $224 \times 224$ RGB tensor with floating-point pixel intensities in $[0, 1]$, and every condition is evaluated on the exact same 200 images.
 \end{itemize}
 
 \subsection{Quick Start}
@@ -81,9 +80,7 @@ uv sync --locked\\
 uv run --locked cnn-signal-sensitivity prepare\\
 uv run --locked jupyter lab
 \end{codeblock}
-Open \code{notebooks/visual\_computing\_lab.ipynb}; each exercise stub raises
-\code{NotImplementedError} until completed. Each exercise is followed immediately by a
-multi-parameter visual demonstration and a public check in \code{cnn\_signal\_sensitivity.checks}.
+Open \code{notebooks/visual\_computing\_lab.ipynb}. Each exercise is followed immediately by a visual demonstration and a public unit check in \code{cnn\_signal\_sensitivity.checks}. The six operators are independent: you can implement and test them in any order, skip a function if you get stuck, and come back to it later (note that \code{histogram\_equalize} in D2 may optionally call \code{image\_histogram} from D1, and the full comparative evaluation in Section 4 runs once all operators are completed).
 
 \newpage
 \section{General Operator Contract}
@@ -91,18 +88,18 @@ multi-parameter visual demonstration and a public check in \code{cnn\_signal\_se
 Unless noted otherwise, every function you implement must satisfy:
 \begin{enumerate}
   \item \textbf{Input/output tensor contract:} Accept a batch \code{images} of shape $(B, 3, H, W)$ with floating-point RGB values in $[0, 1]$. Return a tensor with the exact same shape, \code{dtype}, and \code{device} (except \code{image\_histogram}, which returns \code{torch.long} counts of shape $(B, 256)$ on the input device).
-  \item \textbf{Immutability:} Never modify \code{images} in place; return a new tensor or clone when returning identity.
-  \item \textbf{Vectorized PyTorch:} Use vectorized PyTorch tensor operations rather than nested Python pixel loops (iterating over the batch dimension $B$ when needed for per-image operations is fine).
+  \item \textbf{Immutability:} Never modify \code{images} in place (do not overwrite the input tensor directly); return a new tensor or a copy (\code{images.clone()}) when returning an unchanged image.
+  \item \textbf{Vectorized PyTorch:} Use vectorized PyTorch tensor operations (computing across whole tensors at once rather than nested Python \code{for} loops over individual pixels; iterating over the batch dimension $B$ when needed for per-image operations is fine).
   \item \textbf{Parameter validation:} Raise \code{ValueError} for invalid arguments (e.g., non-positive or non-integer sampling factors, bit depths outside $[1, 8]$, non-finite angles, negative or non-finite filter strengths, or Gaussian kernel radius $\ge \min(H, W)$).
-  \item \textbf{Public checks:} Passing the supplied notebook checks is necessary to proceed, but not an exhaustive correctness proof---verify edge cases such as non-square inputs, multi-image batches, and constant images.
+  \item \textbf{Public checks:} Each exercise has its own unit check cell so you can verify that operator independently as soon as you write it. Passing the check confirms the core contract, though you should still consider edge cases such as non-square inputs, multi-image batches, and constant images.
 \end{enumerate}
 
 \section{Operator Specifications (Seven Exercises)}
 
 \subsection{A. Image Sampling and Nearest-Neighbor Interpolation (\code{sample\_image})}
-Subsample spatially by keeping every $s$-th row and column (starting at index $0$) for positive integer \code{factor} $s \ge 1$. Reconstruct the original $(H, W)$ spatial dimensions via nearest-neighbor interpolation by repeating each retained sample $s$ times along height and width, then cropping any excess rows or columns back to $(H, W)$. When $s = 1$, reproduce the input unchanged.
+Subsample spatially (reduce resolution by keeping only a subset of pixels) by taking every $s$-th row and column (starting at index $0$) for positive integer \code{factor} $s \ge 1$. Reconstruct the original $(H, W)$ spatial dimensions via \textbf{nearest-neighbor interpolation} (filling each output pixel with the value of the closest retained sample) by repeating each retained sample $s$ times along height and width, then cropping any excess rows or columns back to $(H, W)$. When $s = 1$, reproduce the input unchanged.
 
-\textbf{Design note:} Anti-aliasing smoothing before subsampling is intentionally omitted so you can observe aliasing and high-frequency detail loss directly. \textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$.
+\textbf{Design note:} \textbf{Anti-aliasing} (pre-smoothing an image before subsampling to prevent fine, high-frequency patterns from folding into false jagged or stair-step artifacts known as \textbf{aliasing}) is intentionally omitted here so you can observe aliasing and high-frequency detail loss directly. \textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$.
 
 \begin{figure}[H]
   \centering
@@ -111,7 +108,7 @@ Subsample spatially by keeping every $s$-th row and column (starting at index $0
 \end{figure}
 
 \subsection{B. Intensity Quantization (\code{quantize})}
-Reduce per-channel intensity precision to $2^b$ uniformly spaced levels in $[0, 1]$ for integer bit depth $b \in \{1, 2, \dots, 8\}$:
+Reduce per-channel intensity precision (\textbf{quantization}: mapping continuous or fine brightness values to a smaller finite set of discrete levels) to $2^b$ uniformly spaced levels in $[0, 1]$ for integer \textbf{bit depth} $b \in \{1, 2, \dots, 8\}$ (where $b$ bits per color channel represent $2^b$ possible intensity levels):
 \[
   Q_b(x) = \frac{\mathrm{round}\!\left((2^b - 1)\,x\right)}{2^b - 1}.
 \]
@@ -124,7 +121,7 @@ This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 
 \end{figure}
 
 \subsection{C. Affine Geometric Transformation (\code{affine\_rotation})}
-Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} and bilinear interpolation, keeping the $(H, W)$ canvas fixed. Outside regions beyond the source image bounds $[0, W-1] \times [0, H-1]$ must be filled with neutral gray ($0.5$) (treating out-of-bounds source samples as $0.5$ during interpolation, with outputs in $[0, 1]$). When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
+Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} (for each pixel location in the \emph{output} image, computing where it came from in the \emph{input} image so every output pixel receives a value without gaps) and \textbf{bilinear interpolation} (computing a distance-weighted average of the four surrounding input pixels when a mapped coordinate lands between integer grid locations), keeping the $(H, W)$ canvas fixed. Outside regions beyond the source image bounds $[0, W-1] \times [0, H-1]$ must be filled with neutral gray ($0.5$) (treating out-of-bounds source samples as $0.5$ during interpolation), with final outputs \textbf{clamped} (restricted so values below $0$ become $0$ and values above $1$ become $1$) to $[0, 1]$. When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
 
 \textbf{Coordinate conventions:}
 Let $x \in \{0, \dots, W-1\}$ increase rightward and $y \in \{0, \dots, H-1\}$ increase downward, with image center $(c_x, c_y) = \bigl((W-1)/2,\,(H-1)/2\bigr)$. For each centered output coordinate $(\hat{x}, \hat{y}) = (x - c_x,\, y - c_y)$, compute the source location in pixel coordinates:
@@ -150,12 +147,12 @@ Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for
 \end{figure}
 
 \subsection{D2. Histogram Equalization (\code{histogram\_equalize})}
-Redistribute grayscale intensities independently for each image using its 256-bin histogram (you may call \code{image\_histogram}) and cumulative distribution $\mathrm{CDF}(k) = \sum_{j=0}^{k} h(j)$. Let $\mathrm{CDF}_{\min}$ be the cumulative count of the first occupied bin (smallest $k$ with $h(k) > 0$). If all pixels occupy a single bin ($\mathrm{CDF}(255) - \mathrm{CDF}_{\min} = 0$), preserve the constant grayscale intensity unchanged; otherwise map each pixel's bin $k$ through
+Redistribute grayscale intensities independently for each image using its 256-bin histogram (you may call \code{image\_histogram}) and cumulative distribution $\mathrm{CDF}(k) = \sum_{j=0}^{k} h(j)$ (the running total of pixels with bin index $\le k$). Let $\mathrm{CDF}_{\min}$ be the cumulative count of the first occupied bin (smallest $k$ with $h(k) > 0$). If all pixels occupy a single bin ($\mathrm{CDF}(255) - \mathrm{CDF}_{\min} = 0$), preserve the constant grayscale intensity unchanged; otherwise map each pixel's bin $k$ through
 \[
   T(k) = \frac{\mathrm{CDF}(k) - \mathrm{CDF}_{\min}}{HW - \mathrm{CDF}_{\min}}
   \;=\; \frac{\widetilde{\mathrm{CDF}}(k) - \widetilde{\mathrm{CDF}}_{\min}}{1 - \widetilde{\mathrm{CDF}}_{\min}},
 \]
-where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clamped to $[0, 1]$. Replicate the equalized intensity across all three RGB channels so the output shape is $(B, 3, H, W)$.
+where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clamped (restricted) to $[0, 1]$. Replicate the equalized intensity across all three RGB channels so the output shape is $(B, 3, H, W)$.
 
 \textbf{Experimental control:} Because equalization removes color as well as changing contrast, Section 4 evaluates both \code{grayscale} (arithmetic RGB mean replicated to 3 channels) and \code{equalized} to isolate contrast redistribution from color removal.
 
@@ -167,11 +164,11 @@ where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clam
 \end{figure}
 
 \subsection{E. Gaussian Smoothing (\code{gaussian\_smooth})}
-Attenuate high-frequency detail using an isotropic 2-D Gaussian kernel with standard deviation \code{sigma} $\sigma \ge 0$ (in pixels). When $\sigma = 0$, return a clone of \code{images}. Otherwise set kernel radius $r = \lceil 3\sigma \rceil$ (raising \code{ValueError} if $r \ge \min(H, W)$), evaluate
+Attenuate rapid pixel-to-pixel intensity variations (\textbf{high-frequency detail}) using a circularly symmetric (\textbf{isotropic}) 2-D Gaussian kernel with standard deviation \code{sigma} $\sigma \ge 0$ (in pixels). When $\sigma = 0$, return a clone of \code{images}. Otherwise set kernel radius $r = \lceil 3\sigma \rceil$ (raising \code{ValueError} if $r \ge \min(H, W)$), evaluate
 \[
-  K(x, y) = \exp\!\left(-\frac{x^2 + y^2}{2\sigma^2}\right), \quad x, y \in \{-r, \dots, r\},
+  K(x, y) = e^{-\frac{x^2 + y^2}{2\sigma^2}}, \quad x, y \in \{-r, \dots, r\},
 \]
-and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders by $r$ pixels using reflection padding and filter each RGB channel independently, clamping outputs to $[0, 1]$. \textbf{Evaluated settings:} $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels.
+and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders by $r$ pixels using \textbf{reflection padding} (extending the image boundary by mirroring interior pixel values across the edge so the filter window has valid neighbors at border pixels without introducing artificial dark or bright seams), filter each RGB channel independently, and \textbf{clamp} (restrict) outputs to $[0, 1]$. \textbf{Evaluated settings:} $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels.
 
 \begin{figure}[H]
   \centering
@@ -184,11 +181,11 @@ Emphasize rapid intensity transitions using the discrete four-neighbor Laplacian
 \[
   L = \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}.
 \]
-For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a clone), pad \code{images} by $1$ pixel on all sides using reflection padding, filter each RGB channel independently to obtain the \textbf{signed} response $\nabla^2 f$, and compute
+For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a clone), pad \code{images} by $1$ pixel on all sides using \textbf{reflection padding} (mirroring interior pixels across the border), filter each RGB channel independently to obtain the \textbf{signed} response $\nabla^2 f$ (retaining both positive and negative filter values rather than taking absolute values), and compute
 \[
-  g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right).
+  g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right),
 \]
-Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and clip only after subtracting from the original image. \textbf{Evaluated settings:} $a \in \{0, 0.25, 0.5, 1, 2\}$.
+where $\mathrm{clamp}(v, 0, 1)$ restricts values below $0$ to $0$ and values above $1$ to $1$ (also called \emph{clipping}). Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and clip only after subtracting from the original image. \textbf{Evaluated settings:} $a \in \{0, 0.25, 0.5, 1, 2\}$.
 
 \begin{figure}[H]
   \centering
@@ -222,6 +219,7 @@ You are encouraged to explore any vectorized PyTorch design that satisfies the s
     \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.unfold.html}{\code{torch.nn.functional.unfold}}.
 \end{itemize}
 
+\needspace{8\baselineskip}
 \section{Evaluation, Analysis, and Discussion}
 
 Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 28 parameter settings across the five parameterized operators, plus the \code{grayscale} and \code{equalized} controls) via \code{run\_suite} and saves CSV, NPZ, JSON, and figure exports to \code{outputs/lab/}.

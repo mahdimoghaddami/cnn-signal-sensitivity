@@ -38,8 +38,9 @@ def affine_rotation(images: torch.Tensor, angle: float) -> torch.Tensor:
 
     Returns:
         Rotated batch with the same shape, dtype, and device as images,
-        clamped to [0, 1]. Regions outside the input image boundary must be
-        filled with neutral gray (0.5). The input is not modified.
+        clamped (restricted) to [0, 1]. Regions outside the input image
+        boundary must be filled with neutral gray (0.5). The input is not
+        modified.
     """
     if not math.isfinite(angle):
         raise ValueError("angle must be finite.")
@@ -142,9 +143,9 @@ def gaussian_smooth(images: torch.Tensor, sigma: float) -> torch.Tensor:
 
     Returns:
         Smoothed batch with the same shape, dtype, and device as images.
-        Filter RGB channels independently using reflection border padding of
-        width ceil(3*sigma), and clamp outputs to [0, 1]. The input is not
-        modified.
+        Filter RGB channels independently using reflection border padding
+        (mirroring interior edge pixels) of width ceil(3*sigma), and clamp
+        outputs to [0, 1]. The input is not modified.
     """
     if not math.isfinite(sigma) or sigma < 0:
         raise ValueError("sigma must be finite and nonnegative.")
@@ -174,9 +175,9 @@ def laplacian_sharpen(images: torch.Tensor, amount: float) -> torch.Tensor:
     Returns:
         Sharpened batch with the same shape, dtype, and device as images.
         Filter RGB channels independently with the four-neighbor Laplacian
-        (center -4) using reflection border padding, subtract
-        amount * response, and clip final values to [0, 1]. The input is not
-        modified.
+        (center -4) using reflection border padding (mirroring interior edge
+        pixels), subtract amount * response, and clip (clamp) final values
+        to [0, 1]. The input is not modified.
     """
     if not math.isfinite(amount) or amount < 0:
         raise ValueError("amount must be finite and nonnegative.")

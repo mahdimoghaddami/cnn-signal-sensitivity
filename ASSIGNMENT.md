@@ -38,43 +38,55 @@ corresponding to Imagenette's categories. Confidence is conditional on those ten
 This is a classroom sensitivity experiment, not an independent generalization benchmark.
 
 The lab uses one fixed, class-balanced set of 200 Imagenette images. All comparisons use
-the same images. Inputs are RGB values in [0,1], resized/cropped to 224×224. Apply your
-operators before the model's normalization. Do not modify the network or its preprocessing.
+the same images. Each image is provided to your functions as a 224×224 RGB tensor with
+values in [0, 1].
 
 ## Implement six operators (seven exercises)
 
-Use vectorized PyTorch arithmetic (iterating over the batch dimension `B` for per-image
-operations is fine). Return tensors with the same shape, dtype, and device, without
-changing the input in place. Each notebook exercise has a public check.
+Use vectorized PyTorch arithmetic (computing across whole tensors at once rather than nested
+Python pixel loops; iterating over the batch dimension `B` for per-image operations is fine).
+Return tensors with the same shape, dtype, and device, without overwriting the input in place.
+The six operators are independent: you can implement and test them in any order, skip a
+function if you get stuck, and come back to it later (note that `histogram_equalize` may
+optionally call `image_histogram`, and the full evaluation runs once all operators are
+completed).
 
-1. **Image sampling and nearest-neighbor interpolation (`sample_image`):** take every
-   factor-th row/column. Repeat the retained samples to reconstruct the original dimensions,
-   cropping excess rows/columns. Use positive integer factors (tested: 1, 2, 4, 8, 16).
-   Factor 1 is identity. This deliberately omits smoothing before subsampling so you can
-   observe information loss and aliasing.
-2. **Intensity quantization (`quantize`):** use `round(x*(2**b-1))/(2**b-1)`, with integer
-   `b` in `[1, 8]` (tested: 8, 6, 4, 3, 2, 1 bits/channel). This preserves the endpoints
-   and the original samples at 8 bits.
+1. **Image sampling and nearest-neighbor interpolation (`sample_image`):** spatially
+   subsample (keep only every factor-th row and column). Reconstruct the original
+   dimensions via nearest-neighbor interpolation (fill each output pixel with the value of
+   the closest retained sample by repeating retained rows/columns and cropping excess).
+   Use positive integer factors (tested: 1, 2, 4, 8, 16). Factor 1 is identity. Anti-aliasing
+   (pre-smoothing before subsampling to prevent false jagged patterns known as aliasing) is
+   deliberately omitted so you can observe information loss and aliasing directly.
+2. **Intensity quantization (`quantize`):** reduce precision to discrete levels using
+   `round(x*(2**b-1))/(2**b-1)`, with integer bit depth `b` in `[1, 8]` (where `b` bits per
+   channel represent `2**b` intensity levels; tested: 8, 6, 4, 3, 2, 1). This preserves the
+   endpoints and the original samples at 8 bits.
 3. **Affine geometric transformation (`affine_rotation`):** implement rotation about the
-   image center using inverse mapping (tested: -45°, -30°, -15°, 0°, 15°, 30°, 45°).
-   Keep the original image dimensions, use bilinear interpolation, and fill any
-   out-of-bounds pixels with neutral gray (`0.5`). Positive angles are counterclockwise.
+   image center using inverse coordinate mapping (for each output location, compute where
+   it came from in the input image) and bilinear interpolation (a distance-weighted average
+   of the four nearest input pixels; tested: -45°, -30°, -15°, 0°, 15°, 30°, 45°). Keep
+   the original image dimensions, fill any out-of-bounds pixels with neutral gray (`0.5`),
+   and clamp (restrict) outputs to `[0, 1]`. Positive angles are counterclockwise.
 4. **Image histogram and histogram equalization (`image_histogram`, `histogram_equalize`):**
    first implement `image_histogram` to return integer counts shaped `(B, 256)`, one row per
    image, using arithmetic-mean RGB intensity. Use it to plot the input and output histograms.
    Then implement `histogram_equalize` using a 256-bin histogram and its cumulative
-   distribution (you may call `image_histogram`). Normalize by the first occupied CDF value,
-   leaving a constant-intensity image unchanged. Return the intensity image replicated across
-   three channels.
+   distribution (CDF: the running total of pixels up to each bin; you may call
+   `image_histogram`). Normalize by the first occupied CDF value, leaving a
+   constant-intensity image unchanged. Return the intensity image replicated across three
+   channels.
 5. **Gaussian smoothing (`gaussian_smooth`):** construct a normalized 2-D Gaussian kernel
-   `exp(-(x^2 + y^2) / (2 * sigma^2))` with radius `ceil(3 * sigma)` (smaller than H and W).
-   Filter each RGB channel independently using reflection border padding, then clip to
-   `[0, 1]`. Zero `sigma` is identity (tested: 0, 0.5, 1, 2, 4).
+   `e^(-(x^2 + y^2) / (2 * sigma^2))` with radius `ceil(3 * sigma)` (smaller than H and W).
+   Filter each RGB channel independently using reflection border padding (mirroring interior
+   pixels across the image edges), then clamp (restrict) outputs to `[0, 1]`. Zero `sigma`
+   is identity (tested: 0, 0.5, 1, 2, 4).
 6. **Laplacian sharpening (`laplacian_sharpen`):** filter each RGB channel independently with
    the four-neighbor Laplacian mask `[[0, 1, 0], [1, -4, 1], [0, 1, 0]]` using reflection
-   border padding. Keep the signed response, compute `images - amount * response` for
-   nonnegative `amount` (tested: 0, 0.25, 0.5, 1, 2), and clip only the final result to
-   `[0, 1]`. Amount zero is identity.
+   border padding (mirroring interior pixels across the edges). Keep the signed response
+   (retaining both positive and negative values), compute `images - amount * response` for
+   nonnegative `amount` (tested: 0, 0.25, 0.5, 1, 2), and clip (clamp) only the final result
+   to `[0, 1]`. Amount zero is identity.
 
 These six operations cover spatial resolution, intensity resolution, spatial arrangement,
 intensity distribution, smoothing, and sharpening. Every evaluated transformation calls one

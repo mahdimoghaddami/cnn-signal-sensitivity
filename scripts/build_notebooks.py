@@ -38,7 +38,7 @@ def notebook(solution=False):
                 '    """'
                 + ast.get_docstring(ast.parse(FUNCTIONS[name]).body[0]).replace("\n", "\n    ")
                 + '"""\n'
-                f'    raise NotImplementedError("Complete {name} before continuing.")'
+                f'    raise NotImplementedError("Implement {name} to test this operator.")'
             )
         )
         code(source, tags=["exercise", name])
@@ -58,7 +58,7 @@ def notebook(solution=False):
     We use ResNet-18, already trained on ImageNet, with weights supplied by
     [TorchVision](https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html).
     No training is needed. We restrict its predictions to the ten Imagenette categories.
-    Images are resized/cropped to 224×224 before your operators; model normalization happens afterward.
+    Each input image is a 224×224 RGB tensor with values in [0, 1].
     """)
     code("""
     import math
@@ -128,7 +128,8 @@ def notebook(solution=False):
     md("""
     ## 3. Implement the operators
     Inputs are floating-point RGB tensors of shape (B,3,H,W), with values in [0,1].
-    Preserve shape, dtype, and device; do not change the input in place.
+    Preserve shape, dtype, and device; do not overwrite the input in place.
+    Operators are independent: you can complete or test them in any order, or skip one and return later (D2 may call D1).
     """)
     exercise(
         "sample_image",
@@ -308,9 +309,9 @@ def notebook(solution=False):
         r"""
     ### E. Gaussian smoothing
     A smoothing filter replaces each pixel with a weighted neighborhood average.
-    Construct $\exp[-(x^2+y^2)/(2\sigma^2)]$ within radius $\lceil3\sigma\rceil$ and
-    normalize its sum to one. Pad borders by the kernel radius using reflection padding,
-    filter each RGB channel independently, and clamp to [0, 1]. Zero sigma returns a clone.
+    Construct $e^{-(x^2+y^2)/(2\sigma^2)}$ within radius $\lceil3\sigma\rceil$ and
+    normalize its sum to one. Pad borders by the kernel radius using reflection padding
+    (mirroring border pixels), filter each RGB channel independently, and clamp to [0, 1]. Zero sigma returns a clone.
     """,
     )
     code(
