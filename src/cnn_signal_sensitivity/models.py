@@ -45,17 +45,3 @@ def load_classifier(device=None, *, progress=True):
             raise ValueError(f"Weight category mismatch: {index}: {categories[index]} != {name}")
     classifier = RestrictedClassifier(resnet18(weights=weights, progress=progress))
     return classifier.to(device or choose_device())
-
-
-@torch.inference_mode()
-def early_features(model, images):
-    """Capture first convolution output; always remove the hook after this call."""
-    activations = []
-    handle = model.backbone.conv1.register_forward_hook(
-        lambda _module, _inputs, output: activations.append(output.detach().cpu())
-    )
-    try:
-        model(images.to(next(model.parameters()).device))
-    finally:
-        handle.remove()
-    return activations[0]

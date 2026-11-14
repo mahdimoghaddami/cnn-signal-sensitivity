@@ -1,5 +1,6 @@
 """Numerical and experimental-design checks that do not download data or weights."""
 
+import ast
 import json
 from types import SimpleNamespace
 from zipfile import ZipFile
@@ -10,6 +11,7 @@ import pytest
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms.functional import gaussian_blur as library_gaussian
 
 from cnn_signal_sensitivity import checks
 from cnn_signal_sensitivity.data import (
@@ -26,48 +28,104 @@ from cnn_signal_sensitivity.evaluation import (
     run_suite,
     summarize,
 )
-from cnn_signal_sensitivity.experiments import (
-    core_conditions,
-    experiment_conditions,
-    extension_conditions,
-)
+from cnn_signal_sensitivity.experiments import lab_conditions
 from cnn_signal_sensitivity.models import RestrictedClassifier
-from cnn_signal_sensitivity.transforms import (
-    additive_noise,
-    desaturate,
-    identity_condition,
-    line_response,
-    otsu_threshold,
-    point_response,
-    resample,
-    sobel_edges,
-    threshold,
-)
+from cnn_signal_sensitivity.transforms import grayscale, identity_condition
 from instructor.reference import (
-    gamma_transform,
-    gaussian_blur,
-    gaussian_kernel1d,
+    affine_rotation,
+    gaussian_smooth,
+    histogram_equalize,
+    image_histogram,
+    laplacian_sharpen,
     quantize,
-    unsharp_mask,
+    sample_image,
 )
 
 torch.set_num_threads(2)
 
 
-def test_public_exercise_checks():
+def test_public_exercise_checks_pass_for_reference():
+    checks.check_sampling(sample_image)
     checks.check_quantize(quantize)
-    checks.check_gamma(gamma_transform)
-    checks.check_kernel(gaussian_kernel1d)
-    checks.check_unsharp(unsharp_mask)
+    checks.check_affine(affine_rotation)
+    checks.check_image_histogram(image_histogram)
+    checks.check_histogram(histogram_equalize)
+    checks.check_gaussian_smooth(gaussian_smooth)
+    checks.check_laplacian_sharpen(laplacian_sharpen)
+
+
+def test_public_checks_catch_common_bugs():
+    # Batch-mixing histogram equalization bug must fail check_histogram.
+    def batch_mixing_equalize(images):
+        gray = images.mean(dim=1, keepdim=True)
+        bins = torch.round(gray * 255).long()
+        hist = torch.bincount(bins.flatten(), minlength=256).to(images.dtype)
+        cdf = hist.cumsum(0)
+        minimum = cdf[hist > 0][0]
+        mapping = ((cdf - minimum) / (cdf[-1] - minimum)).clamp(0, 1)
+        return mapping[bins].expand(-1, 3, -1, -1).contiguous()
+
+    with pytest.raises(AssertionError):
+        checks.check_histogram(batch_mixing_equalize)
+
+    # Zero-border rotation (missing 0.5 gray fill) must fail check_affine.
+    def black_border_rotation(images, angle):
+        if angle == 0:
+            return images.clone()
+        import math
+
+        import torch.nn.functional as F
+
+        batch, _, height, width = images.shape
+        y, x = torch.meshgrid(
+            torch.arange(height, device=images.device, dtype=images.dtype),
+            torch.arange(width, device=images.device, dtype=images.dtype),
+            indexing="ij",
+        )
+        x, y = x - (width - 1) / 2, y - (height - 1) / 2
+        radians = math.radians(angle)
+        cosine, sine = math.cos(radians), math.sin(radians)
+        sx = cosine * x - sine * y + (width - 1) / 2
+        sy = sine * x + cosine * y + (height - 1) / 2
+        grid = torch.stack((2 * (sx + 0.5) / width - 1, 2 * (sy + 0.5) / height - 1), dim=-1)
+        return F.grid_sample(
+            images,
+            grid.unsqueeze(0).expand(batch, -1, -1, -1),
+            mode="bilinear",
+            padding_mode="zeros",
+            align_corners=False,
+        ).clamp(0, 1)
+
+    with pytest.raises(AssertionError):
+        checks.check_affine(black_border_rotation)
+
+    # In-place input mutation must fail check_sampling.
+    def mutating_sample(images, factor):
+        out = sample_image(images, factor)
+        images.zero_()
+        return out
+
+    with pytest.raises(AssertionError):
+        checks.check_sampling(mutating_sample)
 
 
 @pytest.mark.parametrize(
     "operation,kwargs",
     [
+        (sample_image, {"factor": 0}),
+        (sample_image, {"factor": 1.5}),
         (quantize, {"bits": 0}),
-        (gamma_transform, {"gamma": 0}),
-        (gaussian_blur, {"sigma": -1}),
-        (unsharp_mask, {"sigma": 1, "amount": -1}),
+        (quantize, {"bits": 9}),
+        (quantize, {"bits": 1.5}),
+        (affine_rotation, {"angle": float("nan")}),
+        (affine_rotation, {"angle": float("inf")}),
+        (gaussian_smooth, {"sigma": -1}),
+        (gaussian_smooth, {"sigma": float("nan")}),
+        (gaussian_smooth, {"sigma": float("inf")}),
+        (gaussian_smooth, {"sigma": 6}),
+        (laplacian_sharpen, {"amount": -1}),
+        (laplacian_sharpen, {"amount": float("nan")}),
+        (laplacian_sharpen, {"amount": float("inf")}),
     ],
 )
 def test_invalid_parameters(operation, kwargs):
@@ -75,53 +133,65 @@ def test_invalid_parameters(operation, kwargs):
         operation(torch.zeros(1, 3, 16, 16), **kwargs)
 
 
-def test_gaussian_separability_and_channels():
-    image = torch.zeros(1, 3, 17, 17)
-    image[0, 0, 8, 8] = 1
-    output = gaussian_blur(image, 1)
-    kernel = gaussian_kernel1d(1)
-    torch.testing.assert_close(output[0, 0, 5:12, 5:12], kernel[:, None] * kernel[None, :])
-    assert output[:, 1:].count_nonzero() == 0
-    torch.testing.assert_close(output.sum(), torch.tensor(1.0))
+def test_image_histograms_and_equalization_behavior():
+    color = torch.tensor([1.0, 0.0, 0.0]).reshape(1, 3, 1, 1)
+    counts = image_histogram(color)
+    assert counts.shape == (1, 256) and counts[0, 85] == 1 and counts.sum() == 1
+    images = torch.rand(2, 3, 7, 9)
+    original = images.clone()
+    counts = image_histogram(images)
+    assert counts.dtype == torch.long and counts.device == images.device
+    assert counts.sum(1).tolist() == [63, 63]
+    equalized = histogram_equalize(images)
+    assert equalized.shape == images.shape and equalized.dtype == images.dtype
+    torch.testing.assert_close(equalized[:, 0], equalized[:, 1])
+    torch.testing.assert_close(images, original)
 
 
-def test_color_intensity_and_input_immutability():
-    image = torch.rand(2, 3, 17, 17)
+def test_filter_exercises_and_full_lab_suite():
+    image = torch.rand(2, 3, 17, 19, dtype=torch.float64)
     original = image.clone()
-    changed = desaturate(image, 0.3)
-    torch.testing.assert_close(changed.mean(1), image.mean(1))
-    gray = desaturate(image, 0)
-    torch.testing.assert_close(gray[:, 0], gray[:, 1])
-    unsharp_mask(image, sigma=1, amount=2)
+    torch.testing.assert_close(gaussian_smooth(image, 1), library_gaussian(image, [7, 7], [1, 1]))
+    for output in [gaussian_smooth(image, 1), laplacian_sharpen(image, 0.5)]:
+        assert output.shape == image.shape and output.dtype == image.dtype
+        assert output.device == image.device and output.min() >= 0 and output.max() <= 1
     torch.testing.assert_close(image, original)
 
-
-def test_sampling_identity_and_aliasing_control():
-    checkerboard = (torch.arange(32)[:, None] + torch.arange(32)[None, :]).remainder(2).float()
-    image = checkerboard.expand(1, 3, 32, 32).clone()
-    torch.testing.assert_close(resample(image, 32), image)
-    assert not torch.allclose(
-        resample(image, 11, antialias=True), resample(image, 11, antialias=False)
+    conditions = lab_conditions(
+        sample_image,
+        quantize,
+        affine_rotation,
+        histogram_equalize,
+        gaussian_smooth,
+        laplacian_sharpen,
     )
+    assert len(conditions) == len({c.key for c in conditions}) == 31
+    assert {"quantization_1", "gaussian_4", "laplacian_2", "rotation_-45", "rotation_45"} <= {
+        c.key for c in conditions
+    }
+    assert {c.family for c in conditions} == {
+        "clean",
+        "sampling",
+        "quantization",
+        "affine_rotation",
+        "histogram_equalization",
+        "gaussian_smoothing",
+        "laplacian_sharpening",
+    }
+    image32 = image.float()
+    original32 = image32.clone()
+    for condition in conditions:
+        output = condition.apply(image32, torch.tensor([0, 1]))
+        assert output.shape == image32.shape and output.dtype == image32.dtype
+        assert torch.isfinite(output).all() and output.min() >= 0 and output.max() <= 1
+    torch.testing.assert_close(image32, original32)
 
 
-def test_chapter10_detectors_and_thresholds():
-    constant = torch.ones(1, 3, 17, 17) * 0.4
-    for operator in [point_response, line_response, sobel_edges]:
-        torch.testing.assert_close(
-            operator(constant), torch.zeros_like(constant), atol=1e-6, rtol=0
-        )
-    impulse = torch.zeros_like(constant)
-    impulse[:, :, 8, 8] = 1
-    assert point_response(impulse)[0, 0, 8, 8] == 1
-    horizontal = torch.zeros_like(constant)
-    horizontal[:, :, 8, :] = 1
-    assert line_response(horizontal, "horizontal")[0, 0, 8, 8] == 1
-    assert line_response(horizontal, "vertical")[0, 0, 8, 8] == 0
-    bimodal = torch.cat([torch.full((1, 3, 17, 8), 0.2), torch.full((1, 3, 17, 9), 0.8)], dim=3)
-    expected = threshold(bimodal, 0.5)
-    torch.testing.assert_close(otsu_threshold(bimodal), expected)
-    assert otsu_threshold(constant).count_nonzero() == 0
+def test_grayscale_control_matches_rgb_mean():
+    image = torch.rand(2, 3, 8, 8)
+    gray = grayscale(image)
+    torch.testing.assert_close(gray[:, 0], image.mean(dim=1))
+    torch.testing.assert_close(gray[:, 0], gray[:, 2])
 
 
 def test_manifest_is_balanced_disjoint_and_stable(tmp_path):
@@ -167,23 +237,6 @@ def test_model_normalization_and_ten_logit_mapping():
     assert len(CLASS_NAMES) == model(image).shape[1] == 10
 
 
-def test_noise_is_independent_of_batching():
-    condition = extension_conditions("noise")[3]
-    images = torch.full((3, 3, 17, 17), 0.5)
-    ids = torch.tensor([10, 20, 30])
-    batched = condition.apply(images, ids, seed=7)
-    individual = torch.cat(
-        [
-            condition.apply(image[None], image_id[None], seed=7)
-            for image, image_id in zip(images, ids)
-        ]
-    )
-    torch.testing.assert_close(batched, individual, atol=0, rtol=0)
-    assert not torch.equal(batched, condition.apply(images, ids, seed=8))
-    red = additive_noise(images, 0.1, torch.Generator().manual_seed(3), channel=0)
-    torch.testing.assert_close(red[:, 1:], images[:, 1:])
-
-
 def _predictions(classes):
     probabilities = np.eye(10)[classes] * 0.9 + 0.01
     return Predictions(
@@ -210,7 +263,7 @@ def test_metrics_distinguish_correcting_flips_from_introduced_errors():
         summarize(clean, changed)
 
 
-def test_run_exports_and_all_supplied_conditions(tmp_path):
+def test_run_exports_and_lab_conditions(tmp_path):
     model = RestrictedClassifier(ToyBackbone())
     table, results = run_suite(
         model, DataLoader(ToyDataset(), batch_size=3), [identity_condition()], tmp_path
@@ -218,18 +271,11 @@ def test_run_exports_and_all_supplied_conditions(tmp_path):
     assert len(table) == 1 and len(results["clean"].ids) == 10
     assert np.load(tmp_path / "clean.npz")["probabilities"].shape == (10, 10)
     assert json.loads((tmp_path / "run.json").read_text())["weights"].endswith("IMAGENET1K_V1")
-    for name in ["chapter10", "geometry", "noise"]:
-        for condition in extension_conditions(name):
-            output = condition.apply(torch.rand(1, 3, 32, 32), torch.tensor([5]))
-            assert output.shape == (1, 3, 32, 32) and output.min() >= 0 and output.max() <= 1
-    core = core_conditions(quantize, gamma_transform, gaussian_blur, unsharp_mask)
-    assert len(core) == 36
-    assert len({condition.key for condition in core}) == len(core)
 
 
-def test_notebook_scaffolding_and_solution_free_archive(tmp_path):
+def test_notebook_scaffolding_and_solution_free_archive(tmp_path, monkeypatch):
+    from scripts import package_student as pkg
     from scripts.build_notebooks import ROOT, notebook
-    from scripts.package_student import package_student
 
     starter, solution = notebook(False), notebook(True)
     for document in [starter, solution]:
@@ -244,10 +290,14 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path):
     assert sum(len(text.split()) for text in prose) < 800
     assert max(len(text.split()) for text in prose) < 100
     assert not any("chapter" in text.lower() or "§" in text for text in prose)
-    archive_path = package_student(tmp_path / "student.zip")
+
+    # Package against the real repo into tmp_path (never writing to dist/).
+    archive_path = pkg.package_student(tmp_path / "student.zip")
     with ZipFile(archive_path) as archive:
         names = archive.namelist()
         assert "notebooks/01_cnn_signal_sensitivity.ipynb" in names
+        assert "README.md" in names
+        assert "src/cnn_signal_sensitivity/checks.py" in names
         assert not any(
             name.startswith(("instructor/", "data/", "tests/", "scripts/")) for name in names
         )
@@ -257,22 +307,23 @@ def test_notebook_scaffolding_and_solution_free_archive(tmp_path):
         )
     assert (ROOT / "uv.lock").is_file()
 
-
-def test_unified_suite_and_categorical_settings():
-    conditions = experiment_conditions(quantize, gamma_transform, gaussian_blur, unsharp_mask)
-    assert len(conditions) == len({c.key for c in conditions}) == 54
-    assert sum(c.key == "clean" for c in conditions) == 1
-    assert {"grayscale", "point", "sobel", "otsu", "threshold_0.5"} <= {c.key for c in conditions}
-    assert all(c.plot_kind == "bar" for c in conditions if c.family == "detectors")
-    selected = experiment_conditions(
-        quantize, gamma_transform, gaussian_blur, unsharp_mask, groups=["thresholding"]
-    )
-    assert {c.family for c in selected} == {"clean", "thresholding"}
-    for groups in [[], ["sampling", "sampling"], ["unknown"]]:
-        with pytest.raises(ValueError):
-            experiment_conditions(
-                quantize, gamma_transform, gaussian_blur, unsharp_mask, groups=groups
-            )
+    # Verify PDF instruction inclusion when a PDF is present under docs/.
+    fake_root = tmp_path / "repo"
+    (fake_root / "src/cnn_signal_sensitivity").mkdir(parents=True)
+    (fake_root / "notebooks").mkdir()
+    (fake_root / "docs/typst").mkdir(parents=True)
+    for rel in ["pyproject.toml", "uv.lock", ".python-version", ".gitignore"]:
+        (fake_root / rel).write_text("x", encoding="utf-8")
+    (fake_root / "notebooks/01_cnn_signal_sensitivity.ipynb").write_text("{}", encoding="utf-8")
+    (fake_root / "src/cnn_signal_sensitivity/__init__.py").write_text("", encoding="utf-8")
+    (fake_root / "docs/STUDENT_README.md").write_text("readme", encoding="utf-8")
+    (fake_root / "docs/typst/lab_instructions.pdf").write_bytes(b"%PDF-1.4")
+    monkeypatch.setattr(pkg, "ROOT", fake_root)
+    pdf_archive = pkg.package_student(tmp_path / "student_with_pdf.zip")
+    with ZipFile(pdf_archive) as archive:
+        names = archive.namelist()
+        assert "lab_instructions.pdf" in names
+        assert "ASSIGNMENT.md" not in names
 
 
 def test_cached_inputs_keep_originals_and_sample_identity():
@@ -326,42 +377,21 @@ def test_numeric_and_categorical_plots_use_different_encodings(tmp_path):
     from cnn_signal_sensitivity.plotting import plot_curves
 
     model = RestrictedClassifier(ToyBackbone())
-    conditions = experiment_conditions(
-        quantize, gamma_transform, gaussian_blur, unsharp_mask, groups=["thresholding", "gamma"]
+    conditions = lab_conditions(
+        sample_image,
+        quantize,
+        affine_rotation,
+        histogram_equalize,
+        gaussian_smooth,
+        laplacian_sharpen,
     )
     table, _ = run_suite(model, DataLoader(ToyDataset(), batch_size=5), conditions, tmp_path)
     fig = plot_curves(table)
-    categorical = next(axis for axis in fig.axes if axis.get_title() == "thresholding")
-    numeric = next(axis for axis in fig.axes if axis.get_title() == "gamma brighten")
-    assert len(categorical.patches) == 6
+    categorical = next(axis for axis in fig.axes if axis.get_title() == "histogram equalization")
+    numeric = next(axis for axis in fig.axes if axis.get_title() == "sampling")
+    assert len(categorical.patches) == 2 and len(categorical.texts) == 2
     assert len(numeric.patches) == 0 and len(numeric.lines) == 2
     plt.close(fig)
-
-
-def test_four_lab_operators_and_checks():
-    from cnn_signal_sensitivity.experiments import lab_conditions
-    from instructor.reference import affine_rotation, histogram_equalize, sample_image
-
-    checks.check_sampling(sample_image)
-    checks.check_affine(affine_rotation)
-    checks.check_histogram(histogram_equalize)
-    conditions = lab_conditions(sample_image, quantize, affine_rotation, histogram_equalize)
-    assert len(conditions) == len({c.key for c in conditions}) == 20
-    assert {"rotation_-45", "rotation_45"} <= {c.key for c in conditions}
-    assert {c.family for c in conditions} == {
-        "clean",
-        "sampling",
-        "quantization",
-        "affine_rotation",
-        "histogram_equalization",
-    }
-    image = torch.rand(2, 3, 17, 19)
-    original = image.clone()
-    for condition in conditions:
-        changed = condition.apply(image, torch.tensor([0, 1]))
-        assert changed.shape == image.shape and changed.dtype == image.dtype
-        assert changed.min() >= 0 and changed.max() <= 1
-    torch.testing.assert_close(image, original)
 
 
 def test_notebook_only_evaluates_the_exercise_functions():
@@ -380,13 +410,14 @@ def test_notebook_only_evaluates_the_exercise_functions():
         "## 6.",
     ]:
         assert removed not in text
-    assert "gaussian_smooth, laplacian_sharpen," in text
+    assert "gaussian_smooth," in text and "laplacian_sharpen," in text
     assert "already trained on ImageNet" in text
+    assert "quantization_1" in text
+    assert "gaussian_4" in text and "laplacian_2" in text
+    assert "confidence_mean" in text and "image_mse_mean" in text
 
 
 def test_each_exercise_has_annotations_a_reminder_and_an_immediate_image_demo():
-    import ast
-
     from scripts.build_notebooks import notebook
 
     for solution in [False, True]:
@@ -422,8 +453,8 @@ def test_expanded_instructor_demonstrations():
         for cell in notebook(True).cells
         if "demonstration" in cell.metadata.get("tags", [])
     }
-    assert "factors = [1, 2, 4, 8]" in demos["sample_image"]
-    assert "bit_depths = [1, 2, 4, 8]" in demos["quantize"]
+    assert "factors = [2, 4, 8, 16]" in demos["sample_image"]
+    assert "bit_depths = [6, 4, 2, 1]" in demos["quantize"]
     assert "angles = [-45, -20, 20, 45]" in demos["affine_rotation"]
     assert "sigmas = [0.5, 1, 2, 4]" in demos["gaussian_smooth"]
     assert "amounts = [0.25, 0.5, 1, 2]" in demos["laplacian_sharpen"]
@@ -435,72 +466,3 @@ def test_expanded_instructor_demonstrations():
         if "histogram-comparison" in cell.metadata.get("tags", [])
     )
     assert "image_histogram(twice_equalized)" in comparison
-
-
-def test_image_histograms_and_independent_equalization(monkeypatch):
-    from instructor import reference
-
-    checks.check_image_histogram(reference.image_histogram)
-    color = torch.tensor([1.0, 0.0, 0.0]).reshape(1, 3, 1, 1)
-    counts = reference.image_histogram(color)
-    assert counts.shape == (1, 256) and counts[0, 85] == 1 and counts.sum() == 1
-    images = torch.rand(2, 3, 7, 9)
-    original = images.clone()
-    counts = reference.image_histogram(images)
-    assert counts.dtype == torch.long and counts.device == images.device
-    assert counts.sum(1).tolist() == [63, 63]
-    torch.testing.assert_close(images, original)
-
-    def unavailable_histogram(batch):
-        raise AssertionError("Equalization must not call image_histogram.")
-
-    monkeypatch.setattr(reference, "image_histogram", unavailable_histogram)
-    checks.check_histogram(reference.histogram_equalize)
-
-
-def test_filter_exercises_and_full_lab_suite():
-    from torchvision.transforms.functional import gaussian_blur as library_gaussian
-
-    from cnn_signal_sensitivity.experiments import lab_conditions
-    from instructor.reference import (
-        affine_rotation,
-        gaussian_smooth,
-        histogram_equalize,
-        laplacian_sharpen,
-        sample_image,
-    )
-
-    checks.check_gaussian_smooth(gaussian_smooth)
-    checks.check_laplacian_sharpen(laplacian_sharpen)
-    image = torch.rand(2, 3, 17, 19, dtype=torch.float64)
-    original = image.clone()
-    torch.testing.assert_close(gaussian_smooth(image, 1), library_gaussian(image, [7, 7], [1, 1]))
-    for output in [gaussian_smooth(image, 1), laplacian_sharpen(image, 0.5)]:
-        assert output.shape == image.shape and output.dtype == image.dtype
-        assert output.device == image.device and output.min() >= 0 and output.max() <= 1
-    torch.testing.assert_close(image, original)
-    conditions = lab_conditions(
-        sample_image,
-        quantize,
-        affine_rotation,
-        histogram_equalize,
-        gaussian_smooth,
-        laplacian_sharpen,
-    )
-    assert len(conditions) == len({c.key for c in conditions}) == 30
-    assert {"gaussian_2", "laplacian_1", "rotation_-45", "rotation_45"} <= {
-        c.key for c in conditions
-    }
-    for condition in conditions:
-        output = condition.apply(image.float(), torch.tensor([0, 1]))
-        assert output.shape == image.shape and torch.isfinite(output).all()
-
-
-@pytest.mark.parametrize("value", [-1, float("nan"), float("inf")])
-def test_filters_reject_invalid_strengths(value):
-    from instructor.reference import gaussian_smooth, laplacian_sharpen
-
-    image = torch.zeros(1, 3, 17, 17)
-    for function in [gaussian_smooth, laplacian_sharpen]:
-        with pytest.raises(ValueError):
-            function(image, value)

@@ -5,8 +5,6 @@ import math
 import torch
 import torch.nn.functional as F
 
-from cnn_signal_sensitivity.transforms import separable_filter
-
 
 def sample_image(images: torch.Tensor, factor: int) -> torch.Tensor:
     """Reduce spatial sampling, then reconstruct using nearest neighbors.
@@ -79,6 +77,7 @@ def image_histogram(images: torch.Tensor) -> torch.Tensor:
         Integer pixel counts shaped (B, 256), on the input device.
         Use the RGB channel mean as intensity and round intensity*255
         to select bins 0 through 255. Each histogram sums to H*W.
+        Looping over the batch for 1-D torch.bincount is fine.
         The input is not modified.
     """
     bins = torch.round(images.mean(dim=1) * 255).long()
@@ -98,10 +97,10 @@ def histogram_equalize(images: torch.Tensor) -> torch.Tensor:
         equalized independently, and the input is not modified.
     """
     gray = images.mean(dim=1, keepdim=True)
+    bins = torch.round(gray * 255).long()
+    histograms = image_histogram(images).to(images.dtype)
     output = []
-    for image in gray:
-        bins = torch.round(image * 255).long()
-        histogram = torch.bincount(bins.flatten(), minlength=256).to(images.dtype)
+    for image, image_bins, histogram in zip(gray, bins, histograms, strict=True):
         cdf = histogram.cumsum(0)
         minimum = cdf[histogram > 0][0]
         denominator = cdf[-1] - minimum
@@ -109,7 +108,7 @@ def histogram_equalize(images: torch.Tensor) -> torch.Tensor:
             output.append(image.clone())
         else:
             mapping = ((cdf - minimum) / denominator).clamp(0, 1)
-            output.append(mapping[bins])
+            output.append(mapping[image_bins])
     return torch.stack(output).expand(-1, 3, -1, -1).contiguous()
 
 
@@ -142,8 +141,8 @@ def gaussian_smooth(images: torch.Tensor, sigma: float) -> torch.Tensor:
 
     Returns:
         Smoothed batch with the same shape, dtype, and device as images.
-        Filter RGB channels independently using reflection padding.
-        The input is not modified.
+        Filter RGB channels independently with F.pad(..., mode="reflect")
+        and grouped F.conv2d(..., groups=channels). The input is not modified.
     """
     if not math.isfinite(sigma) or sigma < 0:
         raise ValueError("sigma must be finite and nonnegative.")
@@ -172,8 +171,8 @@ def laplacian_sharpen(images: torch.Tensor, amount: float) -> torch.Tensor:
 
     Returns:
         Sharpened batch with the same shape, dtype, and device as images.
-        Use the four-neighbor Laplacian with center -4, reflection padding,
-        and independent RGB filtering. Clip the final values to [0, 1].
+        Use the four-neighbor Laplacian with center -4, F.pad(..., mode="reflect"),
+        and grouped F.conv2d(..., groups=channels). Clip final values to [0, 1].
         The input is not modified.
     """
     if not math.isfinite(amount) or amount < 0:
@@ -185,34 +184,3 @@ def laplacian_sharpen(images: torch.Tensor, amount: float) -> torch.Tensor:
     padded = F.pad(images, (1, 1, 1, 1), mode="reflect")
     response = F.conv2d(padded, weight, groups=images.shape[1])
     return (images - amount * response).clamp(0, 1)
-
-
-def gamma_transform(images, gamma):
-    """Power law applied independently to encoded RGB channels; gamma > 0."""
-    if gamma <= 0:
-        raise ValueError("gamma must be positive.")
-    return images.pow(gamma)
-
-
-def gaussian_kernel1d(sigma):
-    """Normalized symmetric Gaussian with radius ceil(3*sigma); sigma=0 is identity."""
-    if sigma < 0:
-        raise ValueError("sigma must be nonnegative.")
-    if sigma == 0:
-        return torch.ones(1, dtype=torch.float32)
-    radius = math.ceil(3 * sigma)
-    offsets = torch.arange(-radius, radius + 1, dtype=torch.float32)
-    kernel = torch.exp(-offsets.square() / (2 * sigma**2))
-    return kernel / kernel.sum()
-
-
-def gaussian_blur(images, sigma):
-    return separable_filter(images, gaussian_kernel1d(sigma)).clamp(0, 1)
-
-
-def unsharp_mask(images, sigma, amount):
-    """Original plus weighted highpass residual, followed by fixed [0,1] clipping."""
-    if amount < 0:
-        raise ValueError("amount must be nonnegative.")
-    blurred = gaussian_blur(images, sigma)
-    return (images + amount * (images - blurred)).clamp(0, 1)

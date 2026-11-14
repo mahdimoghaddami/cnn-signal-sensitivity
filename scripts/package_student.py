@@ -16,16 +16,19 @@ def package_student(destination=None):
             "uv.lock",
             ".python-version",
             ".gitignore",
-            "ASSIGNMENT.md",
             "notebooks/01_cnn_signal_sensitivity.ipynb",
         ]
     ]
     files.extend(sorted((ROOT / "src/cnn_signal_sensitivity").glob("*.py")))
-    if not all(file.is_file() for file in files):
+    pdfs = sorted((ROOT / "docs").rglob("*.pdf"))
+    instructions = pdfs if pdfs else [ROOT / "ASSIGNMENT.md"]
+    if not all(file.is_file() for file in [*files, *instructions, ROOT / "docs/STUDENT_README.md"]):
         raise FileNotFoundError("Build notebooks and sync dependencies before packaging.")
     with ZipFile(destination, "w", ZIP_DEFLATED) as archive:
         for file in files:
             archive.write(file, file.relative_to(ROOT))
+        for doc in instructions:
+            archive.write(doc, doc.name)
         archive.write(ROOT / "docs/STUDENT_README.md", "README.md")
     print(destination)
     return destination

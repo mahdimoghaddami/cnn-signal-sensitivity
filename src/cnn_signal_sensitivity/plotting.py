@@ -68,7 +68,20 @@ def plot_curves(table, metric="accuracy_pct", *, families=None):
             raise ValueError(f"No results for family {family!r}.")
         categorical = "plot_kind" in subset and subset.plot_kind.eq("bar").all()
         if categorical:
-            axis.bar(subset.parameter.astype(str), subset[metric], color="#137c8b")
+            bars = axis.bar(subset.parameter.astype(str), subset[metric], color="#137c8b")
+            for bar, value in zip(bars, subset[metric], strict=True):
+                text = f"{value:.1f}%" if metric in {"accuracy_pct", "flip_pct"} else f"{value:.2f}"
+                inside = metric in {"accuracy_pct", "flip_pct"} and value > 80
+                axis.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    value - 4 if inside else value + 1.5,
+                    text,
+                    ha="center",
+                    va="top" if inside else "bottom",
+                    color="white" if inside else "black",
+                    fontsize=8,
+                    fontweight="bold" if inside else "normal",
+                )
             axis.tick_params(axis="x", rotation=45, labelsize=8)
             for label in axis.get_xticklabels():
                 label.set_ha("right")
@@ -188,18 +201,4 @@ def transformation_gallery(model, images, labels, image_ids, conditions, *, seed
             )
             axis.set_xticks([])
             axis.set_yticks([])
-    return fig
-
-
-def plot_feature_pairs(clean, changed, *, channels=6):
-    """One image; choose channels by clean mean absolute activation, shared pair scale."""
-    selected = clean[0].abs().mean((1, 2)).topk(channels).indices.tolist()
-    fig, axes = plt.subplots(2, channels, figsize=(2.5 * channels, 5), squeeze=False)
-    for column, channel in enumerate(selected):
-        pair = np.stack([clean[0, channel].numpy(), changed[0, channel].numpy()])
-        for row in range(2):
-            axes[row, column].imshow(pair[row], cmap="viridis", vmin=pair.min(), vmax=pair.max())
-            axes[row, column].set_title(f"{'Clean' if row == 0 else 'Changed'} | channel {channel}")
-            axes[row, column].axis("off")
-    fig.tight_layout()
     return fig

@@ -43,16 +43,6 @@ def notebook(solution=False):
         )
         code(source, tags=["exercise", name])
 
-    def demonstrate(name, arguments, title):
-        code(
-            f"demo_input = case_images[1:2].clone()  # one RGB image, with its batch dimension\n"
-            f"demo_output = {name}(demo_input{arguments})\n"
-            f'fig = show_input_output(demo_input, demo_output, "{title}")\n'
-            f'fig.savefig(OUTPUT / "demo_{name}.png", dpi=150, bbox_inches="tight")\n'
-            "plt.show()",
-            tags=["demonstration", name],
-        )
-
     md("""
     # From Pixels to Predictions
     **CSI 5550 - Visual Computing**
@@ -83,8 +73,9 @@ def notebook(solution=False):
     from IPython.display import display
     from torch.utils.data import DataLoader
 
-    ROOT = next(p for p in [Path.cwd(), *Path.cwd().parents]
-                if (p / "src/cnn_signal_sensitivity").exists())
+    ROOT = next(
+        p for p in [Path.cwd(), *Path.cwd().parents] if (p / "src/cnn_signal_sensitivity").exists()
+    )
     sys.path.insert(0, str(ROOT / "src"))
     os.environ["TORCH_HOME"] = str(ROOT / "data/models")
 
@@ -123,20 +114,16 @@ def notebook(solution=False):
     plt.show()
     """)
     md("""
-    The six operations are:
+    Evaluated operations and parameter ranges:
 
-    | Operation | What changes in the image |
-    |---|---|
-    | Sampling and interpolation | Reduce spatial samples, then reconstruct. |
-    | Intensity quantization | Use fewer intensity levels. |
-    | Affine rotation | Rotate and interpolate pixel values. |
-    | Histogram equalization | Redistribute grayscale intensities to change contrast. |
-    | Gaussian smoothing | Average neighboring pixels to reduce fine detail. |
-    | Laplacian sharpening | Emphasize rapid intensity changes. |
-
-    **Before running:** Which operations should change predictions most? Why?
-
-    **Your prediction:** TODO
+    | Operation | Image change | Tested settings |
+    |---|---|---|
+    | Sampling | Decimate & reconstruct | Factor 1,2,4,8,16 |
+    | Quantization | Fewer intensity levels | 8,6,4,3,2,1 bits |
+    | Affine rotation | Rotate, bilinear, gray fill | 0°, ±15°, ±30°, ±45° |
+    | Histogram equalization | Redistribute luminance | 256 bins (vs. gray) |
+    | Gaussian smoothing | Neighborhood blur | σ = 0,0.5,1,2,4 px |
+    | Laplacian sharpening | High-frequency boost | Amount 0,0.25,0.5,1,2 |
     """)
     md("""
     ## 3. Implement the operators
@@ -157,7 +144,7 @@ def notebook(solution=False):
     code(
         """
     demo_input = case_images[1:2].clone()
-    factors = [1, 2, 4, 8]
+    factors = [2, 4, 8, 16]
     fig, axes = plt.subplots(1, 5, figsize=(15, 3.5), layout="constrained")
     axes[0].imshow(demo_input[0].permute(1, 2, 0).cpu())
     axes[0].set_title("Input image")
@@ -186,7 +173,7 @@ def notebook(solution=False):
     code(
         """
     demo_input = case_images[1:2].clone()
-    bit_depths = [1, 2, 4, 8]
+    bit_depths = [6, 4, 2, 1]
     fig, axes = plt.subplots(1, 5, figsize=(15, 3.5), layout="constrained")
     axes[0].imshow(demo_input[0].permute(1, 2, 0).cpu())
     axes[0].set_title("Input image")
@@ -205,13 +192,13 @@ def notebook(solution=False):
     exercise(
         "affine_rotation",
         "(images: torch.Tensor, angle: float) -> torch.Tensor",
-        """
+        r"""
     ### C. Affine geometric transformation
-    A geometric transformation changes pixel locations; interpolation assigns their intensities.
-    Rotate about the image center using inverse coordinate mapping and bilinear interpolation.
-    Positive angles are counterclockwise degrees. Keep the original canvas and fill outside
-    regions with 0.5. Construct the coordinate grid yourself; grid_sample is allowed.
-    See ASSIGNMENT.md for coordinate conventions.
+    Rotate counterclockwise by $\theta$ around $((W-1)/2, (H-1)/2)$ using inverse mapping and
+    bilinear interpolation. For centered coordinates $(x, y)$, compute
+    $x_s = x\cos\theta - y\sin\theta$ and $y_s = x\sin\theta + y\cos\theta$, then add the center back.
+    Normalize for `grid_sample(..., align_corners=False)` via $g_x = 2(x_s + 0.5)/W - 1$
+    (similarly for $g_y$ with $H$), filling outside regions with gray (`0.5`).
     """,
     )
     code(
@@ -240,7 +227,7 @@ def notebook(solution=False):
     ### D1. Image histogram
     A histogram counts how many pixels have each intensity level.
     First convert RGB to grayscale using the channel mean, then round intensity*255 into 256 bins.
-    Return a separate row of counts for each image; do not combine the batch.
+    Return a separate row of counts for each image; looping over the batch with 1-D `torch.bincount` is fine.
     Use this function to plot the histograms before and after equalization.
     """,
     )
@@ -257,7 +244,9 @@ def notebook(solution=False):
     axes[1].set_title("Grayscale intensity (RGB mean)")
     axes[1].axis("off")
     axes[2].bar(range(256), counts.cpu().numpy(), width=1)
-    axes[2].set(title="Input intensity histogram", xlabel="Intensity level", ylabel="Pixel count", xlim=(0, 255))
+    axes[2].set(
+        title="Input intensity histogram", xlabel="Intensity level", ylabel="Pixel count", xlim=(0, 255)
+    )
     fig.savefig(OUTPUT / "demo_image_histogram.png", dpi=150, bbox_inches="tight")
     plt.show()
     """,
@@ -272,7 +261,7 @@ def notebook(solution=False):
     Histogram equalization redistributes intensity levels to spread contrast across their range.
     Convert RGB to intensity using its channel mean. For each image, compute a 256-bin
     histogram and cumulative distribution. Map intensities using (CDF−CDF_min)/(1−CDF_min).
-    Compute the histogram inside this function, independently of image_histogram.
+    You may call `image_histogram` to compute the per-image counts.
     Leave constant-intensity images unchanged. Replicate the result into three channels.
     """,
     )
@@ -282,8 +271,11 @@ def notebook(solution=False):
     demo_output = histogram_equalize(demo_input)
     twice_equalized = histogram_equalize(demo_output)
     fig, axes = plt.subplots(1, 3, figsize=(12, 4), layout="constrained")
-    for ax, image, title in zip(axes, [demo_input, demo_output, twice_equalized],
-                               ["Input image", "Histogram-equalized grayscale", "Twice histogram-equalized"]):
+    for ax, image, title in zip(
+        axes,
+        [demo_input, demo_output, twice_equalized],
+        ["Input image", "Histogram-equalized grayscale", "Twice histogram-equalized"],
+    ):
         ax.imshow(image[0].permute(1, 2, 0).cpu())
         ax.set_title(title)
         ax.axis("off")
@@ -298,8 +290,11 @@ def notebook(solution=False):
     output_counts = image_histogram(demo_output)[0]
     twice_counts = image_histogram(twice_equalized)[0]
     fig, axes = plt.subplots(1, 3, figsize=(13, 3.5), sharex=True, sharey=True, layout="constrained")
-    for ax, counts, title in zip(axes, [input_counts, output_counts, twice_counts],
-                                ["Input intensity histogram", "Equalized output histogram", "Twice equalized histogram"]):
+    for ax, counts, title in zip(
+        axes,
+        [input_counts, output_counts, twice_counts],
+        ["Input intensity histogram", "Equalized output histogram", "Twice equalized histogram"],
+    ):
         ax.bar(range(256), counts.cpu().numpy(), width=1)
         ax.set(title=title, xlabel="Intensity level", xlim=(0, 255))
     axes[0].set_ylabel("Pixel count")
@@ -316,8 +311,8 @@ def notebook(solution=False):
     ### E. Gaussian smoothing
     A smoothing filter replaces each pixel with a weighted neighborhood average.
     Construct $\exp[-(x^2+y^2)/(2\sigma^2)]$ within radius $\lceil3\sigma\rceil$ and
-    normalize its sum to one. Filter each RGB channel independently with reflection padding.
-    Return the input unchanged for zero sigma. Convolution with conv2d is allowed.
+    normalize its sum to one. Filter each RGB channel independently with `F.pad(..., mode="reflect")`
+    and grouped `F.conv2d(..., groups=channels)`. Return the input unchanged for zero sigma.
     """,
     )
     code(
@@ -345,7 +340,8 @@ def notebook(solution=False):
         r"""
     ### F. Laplacian sharpening
     The Laplacian measures second-order intensity changes. Use the mask
-    [[0,1,0],[1,-4,1],[0,1,0]] independently on RGB channels with reflection padding.
+    [[0,1,0],[1,-4,1],[0,1,0]] independently on RGB channels with `F.pad(..., mode="reflect")`
+    and grouped `F.conv2d(..., groups=channels)`.
     Sharpen with $g=f-a\nabla^2f$, for $a\geq0$, then clip to [0,1].
     Keep the signed response until the final subtraction; do not take its absolute value.
     """,
@@ -374,27 +370,82 @@ def notebook(solution=False):
     The evaluation below calls the six operator functions you just wrote.
     The grayscale comparison isolates histogram equalization from the removal of color.
     Rotation can also crop objects; inspect the images before interpreting accuracy changes.
+
+    **Before running:** Based on your visual demos above, which operations and parameter levels should change predictions most? Why?
+
+    **Your prediction:** TODO
     """)
     code("""
-    reload(experiments)  # pick up updated rotation settings in an existing kernel
+    reload(experiments)  # pick up updated evaluation conditions in an existing kernel
     conditions = experiments.lab_conditions(
-        sample_image, quantize, affine_rotation, histogram_equalize,
-        gaussian_smooth, laplacian_sharpen,
+        sample_image,
+        quantize,
+        affine_rotation,
+        histogram_equalize,
+        gaussian_smooth,
+        laplacian_sharpen,
     )
-    selected = [c for c in conditions if c.key in
-                {'clean', 'sampling_8', 'quantization_2', 'rotation_-45', 'rotation_45', 'grayscale', 'equalized'}]
-    fig = transformation_gallery(model, case_images[:2], case_labels[:2], case_ids[:2], selected)
+    example_indices = [1, 6]
+    selected = [
+        c
+        for c in conditions
+        if c.key
+        in {
+            "clean",
+            "sampling_8",
+            "quantization_2",
+            "quantization_1",
+            "rotation_-45",
+            "rotation_45",
+            "grayscale",
+            "equalized",
+        }
+    ]
+    fig = transformation_gallery(
+        model,
+        case_images[example_indices],
+        case_labels[example_indices],
+        case_ids[example_indices],
+        selected,
+    )
     fig.savefig(OUTPUT / "examples.png", dpi=150, bbox_inches="tight")
     plt.show()
-    filter_examples = [c for c in conditions if c.key in {'clean', 'gaussian_2', 'laplacian_1'}]
-    fig = transformation_gallery(model, case_images[:2], case_labels[:2], case_ids[:2], filter_examples)
+    filter_examples = [
+        c
+        for c in conditions
+        if c.key in {"clean", "gaussian_2", "gaussian_4", "laplacian_1", "laplacian_2"}
+    ]
+    fig = transformation_gallery(
+        model,
+        case_images[example_indices],
+        case_labels[example_indices],
+        case_ids[example_indices],
+        filter_examples,
+    )
     fig.savefig(OUTPUT / "filter_examples.png", dpi=150, bbox_inches="tight")
     plt.show()
     """)
     code("""
-    table, results = run_suite(model, loader, conditions, OUTPUT, baseline=clean,
-                               metadata={"subset_manifest": "data/lab_subset.json"})
-    display(table[['condition', 'accuracy_pct', 'drop_pp', 'flip_pct']].round(2))
+    table, results = run_suite(
+        model,
+        loader,
+        conditions,
+        OUTPUT,
+        baseline=clean,
+        metadata={"subset_manifest": "data/lab_subset.json"},
+    )
+    display(
+        table[
+            [
+                "condition",
+                "accuracy_pct",
+                "drop_pp",
+                "flip_pct",
+                "confidence_mean",
+                "image_mse_mean",
+            ]
+        ].round(3)
+    )
     fig = plot_curves(table)
     fig.savefig(OUTPUT / "accuracy.png", dpi=150, bbox_inches="tight")
     plt.show()
