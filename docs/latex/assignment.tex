@@ -12,12 +12,13 @@
 \usepackage{enumitem}
 \usepackage{float}
 \usepackage{graphicx}
+\usepackage{needspace}
 \usepackage{xcolor}
 \usepackage{parskip}
 \usepackage{titlesec}
 \usepackage{upquote}
 \usepackage{fancyhdr}
-\usepackage[hidelinks]{hyperref}
+\usepackage[colorlinks=true,urlcolor=accent,linkcolor=accent]{hyperref}
 
 \captionsetup{font=small,labelfont=bf}
 \graphicspath{{figures/}{docs/latex/figures/}}
@@ -68,12 +69,18 @@ In this laboratory, you will implement six classical image processing operators-
 \end{itemize}
 
 \subsection{Quick Start}
-From the project root directory, synchronize the environment, cache the dataset and weights once, and open JupyterLab (select the project's \code{.venv} kernel):
-\begin{quote}\small\ttfamily
+This project uses \code{uv} for environment and package management. If \code{uv} is not installed yet, follow \href{https://docs.astral.sh/uv/getting-started/installation/}{the official \code{uv} installation guide} or run the standalone installer for your platform:
+\begin{itemize}[itemsep=0.15em,topsep=0.1em,parsep=0pt]
+  \item \textbf{macOS / Linux:} {\small\code{curl -LsSf https://astral.sh/uv/install.sh | sh}}
+  \item \textbf{Windows (PowerShell):}\\[-0.2em]
+    {\small\code{powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"}}
+\end{itemize}
+After installing \code{uv} (restart your terminal if needed), run these commands from the project root directory to synchronize the environment, cache the dataset and weights once, and open JupyterLab (select the project's \code{.venv} kernel):
+\begin{codeblock}
 uv sync --locked\\
 uv run --locked cnn-signal-sensitivity prepare\\
 uv run --locked jupyter lab
-\end{quote}
+\end{codeblock}
 Open \code{notebooks/visual\_computing\_lab.ipynb}; each exercise stub raises
 \code{NotImplementedError} until completed. Each exercise is followed immediately by a
 multi-parameter visual demonstration and a public check in \code{cnn\_signal\_sensitivity.checks}.
@@ -85,7 +92,7 @@ Unless noted otherwise, every function you implement must satisfy:
 \begin{enumerate}
   \item \textbf{Input/output tensor contract:} Accept a batch \code{images} of shape $(B, 3, H, W)$ with floating-point RGB values in $[0, 1]$. Return a tensor with the exact same shape, \code{dtype}, and \code{device} (except \code{image\_histogram}, which returns \code{torch.long} counts of shape $(B, 256)$ on the input device).
   \item \textbf{Immutability:} Never modify \code{images} in place; return a new tensor or clone when returning identity.
-  \item \textbf{Vectorized PyTorch:} Use PyTorch tensor operations rather than nested Python pixel loops (iterating over the batch dimension $B$ for per-image 1-D \code{torch.bincount} is fine).
+  \item \textbf{Vectorized PyTorch:} Use vectorized PyTorch tensor operations rather than nested Python pixel loops (iterating over the batch dimension $B$ when needed for per-image operations is fine).
   \item \textbf{Parameter validation:} Raise \code{ValueError} for invalid arguments (e.g., non-positive or non-integer sampling factors, bit depths outside $[1, 8]$, non-finite angles, negative or non-finite filter strengths, or Gaussian kernel radius $\ge \min(H, W)$).
   \item \textbf{Public checks:} Passing the supplied notebook checks is necessary to proceed, but not an exhaustive correctness proof---verify edge cases such as non-square inputs, multi-image batches, and constant images.
 \end{enumerate}
@@ -93,7 +100,7 @@ Unless noted otherwise, every function you implement must satisfy:
 \section{Operator Specifications (Seven Exercises)}
 
 \subsection{A. Image Sampling and Nearest-Neighbor Interpolation (\code{sample\_image})}
-Subsample spatially by keeping every $s$-th row and column (\code{images[:, :, ::factor, ::factor]}) for positive integer \code{factor} $s \ge 1$. Reconstruct the original $(H, W)$ spatial dimensions by repeating retained samples $s$ times along height and width, then cropping any excess rows or columns back to $(H, W)$. When $s = 1$, reproduce the input unchanged.
+Subsample spatially by keeping every $s$-th row and column (starting at index $0$) for positive integer \code{factor} $s \ge 1$. Reconstruct the original $(H, W)$ spatial dimensions via nearest-neighbor interpolation by repeating each retained sample $s$ times along height and width, then cropping any excess rows or columns back to $(H, W)$. When $s = 1$, reproduce the input unchanged.
 
 \textbf{Design note:} Anti-aliasing smoothing before subsampling is intentionally omitted so you can observe aliasing and high-frequency detail loss directly. \textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$.
 
@@ -117,20 +124,15 @@ This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 
 \end{figure}
 
 \subsection{C. Affine Geometric Transformation (\code{affine\_rotation})}
-Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} and bilinear interpolation, keeping the $(H, W)$ canvas fixed and filling outside regions with neutral gray ($0.5$). When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
+Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} and bilinear interpolation, keeping the $(H, W)$ canvas fixed. Outside regions beyond the source image bounds $[0, W-1] \times [0, H-1]$ must be filled with neutral gray ($0.5$) (treating out-of-bounds source samples as $0.5$ during interpolation, with outputs in $[0, 1]$). When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
 
-\textbf{Coordinate and sampling conventions:}
+\textbf{Coordinate conventions:}
 Let $x \in \{0, \dots, W-1\}$ increase rightward and $y \in \{0, \dots, H-1\}$ increase downward, with image center $(c_x, c_y) = \bigl((W-1)/2,\,(H-1)/2\bigr)$. For each centered output coordinate $(\hat{x}, \hat{y}) = (x - c_x,\, y - c_y)$, compute the source location in pixel coordinates:
 \[
   x_s = \hat{x}\cos\theta - \hat{y}\sin\theta + c_x, \qquad
   y_s = \hat{x}\sin\theta + \hat{y}\cos\theta + c_y.
 \]
-Convert $(x_s, y_s)$ to normalized \code{F.grid\_sample} coordinates in $[-1, 1]$ for \code{align\_corners=False}:
-\[
-  g_x = \frac{2(x_s + 0.5)}{W} - 1, \qquad
-  g_y = \frac{2(y_s + 0.5)}{H} - 1.
-\]
-To obtain the gray ($0.5$) fill outside the image boundary while using \code{padding\_mode="zeros"}, sample \code{images - 0.5} with \code{mode="bilinear"} and \code{align\_corners=False}, add \code{0.5} back, and clamp to $[0, 1]$. \textbf{Evaluated settings:} $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$.
+\textbf{Evaluated settings:} $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$.
 
 \begin{figure}[H]
   \centering
@@ -139,7 +141,7 @@ To obtain the gray ($0.5$) fill outside the image boundary while using \code{pad
 \end{figure}
 
 \subsection{D1. Image Histogram (\code{image\_histogram})}
-Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). Looping over the batch dimension $B$ with 1-D \code{torch.bincount(..., minlength=256)} is fine. You will use this function to plot the input and equalized histograms on shared axes.
+Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). You will use this function to plot the input and equalized histograms on shared axes.
 
 \begin{figure}[H]
   \centering
@@ -159,8 +161,8 @@ where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clam
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.62\linewidth]{demo_histogram_equalize.png}\\[4pt]
-  \includegraphics[width=0.76\linewidth]{histogram_comparison.png}
+  \includegraphics[width=0.54\linewidth]{demo_histogram_equalize.png}\\[3pt]
+  \includegraphics[width=0.68\linewidth]{histogram_comparison.png}
   \caption{Top: input image and expected \code{histogram\_equalize} output. Bottom: corresponding 256-bin intensity histograms.}
 \end{figure}
 
@@ -169,10 +171,7 @@ Attenuate high-frequency detail using an isotropic 2-D Gaussian kernel with stan
 \[
   K(x, y) = \exp\!\left(-\frac{x^2 + y^2}{2\sigma^2}\right), \quad x, y \in \{-r, \dots, r\},
 \]
-and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders via
-\code{F.pad(images, (r, r, r, r), mode="reflect")} and filter each RGB channel independently
-with grouped \code{F.conv2d(..., groups=channels)}, clamping to $[0, 1]$. \textbf{Evaluated settings:}
-$\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels.
+and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders by $r$ pixels using reflection padding and filter each RGB channel independently, clamping outputs to $[0, 1]$. \textbf{Evaluated settings:} $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels.
 
 \begin{figure}[H]
   \centering
@@ -185,7 +184,7 @@ Emphasize rapid intensity transitions using the discrete four-neighbor Laplacian
 \[
   L = \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}.
 \]
-For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a clone), pad \code{images} by $1$ pixel on all sides using \code{mode="reflect"}, filter each RGB channel independently with grouped \code{F.conv2d(..., groups=channels)} to obtain the \textbf{signed} response $\nabla^2 f$, and compute
+For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a clone), pad \code{images} by $1$ pixel on all sides using reflection padding, filter each RGB channel independently to obtain the \textbf{signed} response $\nabla^2 f$, and compute
 \[
   g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right).
 \]
@@ -197,11 +196,37 @@ Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and cli
   \caption{Input image and expected \code{laplacian\_sharpen} outputs for sharpening amounts $a \in \{0.25, 0.5, 1, 2\}$.}
 \end{figure}
 
+\subsection{Helpful PyTorch Functions (Optional)}
+You are encouraged to explore any vectorized PyTorch design that satisfies the specifications above. The functions below are optional building blocks you can check out---click any name to open its official PyTorch documentation, or use another approach if you prefer:
+\begin{itemize}\raggedright
+  \item \textbf{Sampling \& shape manipulation:}
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.repeat_interleave.html}{\code{torch.repeat\_interleave}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.repeat.html}{\code{torch.Tensor.repeat}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.expand.html}{\code{torch.Tensor.expand}}.
+  \item \textbf{Rounding \& value bounds:}
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.round.html}{\code{torch.round}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.clamp.html}{\code{torch.clamp}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.floor.html}{\code{torch.floor}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.ceil.html}{\code{torch.ceil}}.
+  \item \textbf{Coordinate grids \& warping:}
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.arange.html}{\code{torch.arange}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.meshgrid.html}{\code{torch.meshgrid}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html}{\code{torch.nn.functional.grid\_sample}}.
+  \item \textbf{Histograms \& cumulative counts:}
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.bincount.html}{\code{torch.bincount}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.histc.html}{\code{torch.histc}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.cumsum.html}{\code{torch.cumsum}}.
+  \item \textbf{Padding \& spatial filtering:}
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.pad.html}{\code{torch.nn.functional.pad}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.conv2d.html}{\code{torch.nn.functional.conv2d}},
+    \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.unfold.html}{\code{torch.nn.functional.unfold}}.
+\end{itemize}
+
 \section{Evaluation, Analysis, and Discussion}
 
 Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 28 parameter settings across the five parameterized operators, plus the \code{grayscale} and \code{equalized} controls) via \code{run\_suite} and saves CSV, NPZ, JSON, and figure exports to \code{outputs/lab/}.
 
-\begin{table}[h]
+\begin{table}[H]
   \centering\small
   \begin{tabular}{@{}lll@{}}
     \toprule
@@ -243,6 +268,7 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
     \end{itemize}
 \end{enumerate}
 
+\needspace{7\baselineskip}
 \section{Submission and Grading}
 
 Before submitting, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom and all figures, tables, and written responses are saved inside the notebook.
@@ -252,7 +278,7 @@ Before submitting, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells}
   \item \textbf{Do not submit:} \code{.venv/}, \code{outputs/}, \code{data/}, downloaded Imagenette image archives, cached model weights, or any other project files.
 \end{itemize}
 
-\begin{table}[h]
+\begin{table}[H]
   \centering\small
   \begin{tabular}{@{}lr@{}}
     \toprule

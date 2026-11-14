@@ -33,11 +33,13 @@ def affine_rotation(images: torch.Tensor, angle: float) -> torch.Tensor:
     Args:
         images: Float RGB batch in [0, 1], shaped (B, 3, H, W).
             B is the number of images; H and W are height and width.
-        angle: Counterclockwise rotation in degrees, applied to every image.
+        angle: Counterclockwise rotation in degrees, applied to every image
+            about center ((W - 1) / 2, (H - 1) / 2). Zero returns a clone.
 
     Returns:
-        Rotated batch with the same shape, dtype, and device as images.
-        Outside regions use gray (0.5). The input is not modified.
+        Rotated batch with the same shape, dtype, and device as images,
+        clamped to [0, 1]. Regions outside the input image boundary must be
+        filled with neutral gray (0.5). The input is not modified.
     """
     if not math.isfinite(angle):
         raise ValueError("angle must be finite.")
@@ -77,7 +79,6 @@ def image_histogram(images: torch.Tensor) -> torch.Tensor:
         Integer pixel counts shaped (B, 256), on the input device.
         Use the RGB channel mean as intensity and round intensity*255
         to select bins 0 through 255. Each histogram sums to H*W.
-        Looping over the batch for 1-D torch.bincount is fine.
         The input is not modified.
     """
     bins = torch.round(images.mean(dim=1) * 255).long()
@@ -141,8 +142,9 @@ def gaussian_smooth(images: torch.Tensor, sigma: float) -> torch.Tensor:
 
     Returns:
         Smoothed batch with the same shape, dtype, and device as images.
-        Filter RGB channels independently with F.pad(..., mode="reflect")
-        and grouped F.conv2d(..., groups=channels). The input is not modified.
+        Filter RGB channels independently using reflection border padding of
+        width ceil(3*sigma), and clamp outputs to [0, 1]. The input is not
+        modified.
     """
     if not math.isfinite(sigma) or sigma < 0:
         raise ValueError("sigma must be finite and nonnegative.")
@@ -171,9 +173,10 @@ def laplacian_sharpen(images: torch.Tensor, amount: float) -> torch.Tensor:
 
     Returns:
         Sharpened batch with the same shape, dtype, and device as images.
-        Use the four-neighbor Laplacian with center -4, F.pad(..., mode="reflect"),
-        and grouped F.conv2d(..., groups=channels). Clip final values to [0, 1].
-        The input is not modified.
+        Filter RGB channels independently with the four-neighbor Laplacian
+        (center -4) using reflection border padding, subtract
+        amount * response, and clip final values to [0, 1]. The input is not
+        modified.
     """
     if not math.isfinite(amount) or amount < 0:
         raise ValueError("amount must be finite and nonnegative.")

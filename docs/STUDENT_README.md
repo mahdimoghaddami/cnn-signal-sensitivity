@@ -3,6 +3,21 @@
 Read the lab instructions (`ASSIGNMENT.md` or the included PDF) and complete
 `notebooks/visual_computing_lab.ipynb`.
 
+If `uv` is not installed yet, follow the
+[uv installation guide](https://docs.astral.sh/uv/getting-started/installation/):
+
+~~~bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+~~~
+
+~~~powershell
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+~~~
+
+Then set up the environment and launch the lab:
+
 ~~~powershell
 uv sync --locked
 uv run --locked cnn-signal-sensitivity prepare

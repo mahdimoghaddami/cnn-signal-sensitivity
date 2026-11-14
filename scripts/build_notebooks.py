@@ -137,8 +137,8 @@ def notebook(solution=False):
     ### A. Image sampling and interpolation
     Sampling determines how finely an image's spatial detail is represented.
     Keep every factor-th row and column. Reconstruct the original size using
-    nearest-neighbor interpolation: repeat samples, then crop to the original dimensions.
-    Factor 1 should reproduce the input. Use slicing and tensor repetition.
+    nearest-neighbor interpolation: repeat retained samples factor times along height
+    and width, then crop to the original dimensions. Factor 1 reproduces the input.
     """,
     )
     code(
@@ -197,8 +197,8 @@ def notebook(solution=False):
     Rotate counterclockwise by $\theta$ around $((W-1)/2, (H-1)/2)$ using inverse mapping and
     bilinear interpolation. For centered coordinates $(x, y)$, compute
     $x_s = x\cos\theta - y\sin\theta$ and $y_s = x\sin\theta + y\cos\theta$, then add the center back.
-    Normalize for `grid_sample(..., align_corners=False)` via $g_x = 2(x_s + 0.5)/W - 1$
-    (similarly for $g_y$ with $H$), filling outside regions with gray (`0.5`).
+    Fill outside regions beyond the source bounds with neutral gray (`0.5`) and clamp outputs
+    to [0, 1]. Zero angle returns a clone.
     """,
     )
     code(
@@ -227,7 +227,7 @@ def notebook(solution=False):
     ### D1. Image histogram
     A histogram counts how many pixels have each intensity level.
     First convert RGB to grayscale using the channel mean, then round intensity*255 into 256 bins.
-    Return a separate row of counts for each image; looping over the batch with 1-D `torch.bincount` is fine.
+    Return a separate row of counts for each image of shape `(B, 256)` on the input device.
     Use this function to plot the histograms before and after equalization.
     """,
     )
@@ -309,8 +309,8 @@ def notebook(solution=False):
     ### E. Gaussian smoothing
     A smoothing filter replaces each pixel with a weighted neighborhood average.
     Construct $\exp[-(x^2+y^2)/(2\sigma^2)]$ within radius $\lceil3\sigma\rceil$ and
-    normalize its sum to one. Filter each RGB channel independently with `F.pad(..., mode="reflect")`
-    and grouped `F.conv2d(..., groups=channels)`. Return the input unchanged for zero sigma.
+    normalize its sum to one. Pad borders by the kernel radius using reflection padding,
+    filter each RGB channel independently, and clamp to [0, 1]. Zero sigma returns a clone.
     """,
     )
     code(
@@ -337,9 +337,8 @@ def notebook(solution=False):
         "(images: torch.Tensor, amount: float) -> torch.Tensor",
         r"""
     ### F. Laplacian sharpening
-    The Laplacian measures second-order intensity changes. Use the mask
-    [[0,1,0],[1,-4,1],[0,1,0]] independently on RGB channels with `F.pad(..., mode="reflect")`
-    and grouped `F.conv2d(..., groups=channels)`.
+    The Laplacian measures second-order intensity changes. Filter each RGB channel
+    independently with the mask [[0,1,0],[1,-4,1],[0,1,0]] using reflection border padding.
     Sharpen with $g=f-a\nabla^2f$, for $a\geq0$, then clip to [0,1].
     Keep the signed response until the final subtraction; do not take its absolute value.
     """,
