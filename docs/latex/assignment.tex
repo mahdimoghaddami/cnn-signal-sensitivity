@@ -39,7 +39,7 @@
 \usepackage[colorlinks=true,urlcolor=accent,linkcolor=accent]{hyperref}
 \hypersetup{
   pdftitle={From Pixels to Predictions},
-  pdfsubject={CSI 5550 Visual Computing laboratory assignment},
+  pdfsubject={CSI 5550 Visual Computing lab assignment},
   pdfkeywords={image processing, PyTorch, CNN, Imagenette},
   bookmarksnumbered=true
 }
@@ -162,41 +162,41 @@
 \begin{document}
 
 \begin{tcolorbox}[
-  enhanced,
-  colback=bannerbg,
-  colframe=accent!35,
-  borderline west={4pt}{0pt}{primary},
-  arc=3pt,
-  boxrule=0.5pt,
-  left=12pt,
-  right=12pt,
-  top=8pt,
-  bottom=8pt,
-  before skip=0pt,
-  after skip=0.45em
-]
-  {\small\bfseries\color{accent} CSI 5550 \enspace\textperiodcentered\enspace VISUAL COMPUTING \enspace\textperiodcentered\enspace LABORATORY ASSIGNMENT}\\[0.25em]
+    enhanced,
+    colback=bannerbg,
+    colframe=accent!35,
+    borderline west={4pt}{0pt}{primary},
+    arc=3pt,
+    boxrule=0.5pt,
+    left=12pt,
+    right=12pt,
+    top=8pt,
+    bottom=8pt,
+    before skip=0pt,
+    after skip=0.45em
+  ]
+  {\small\bfseries\color{accent} CSI 5550 \enspace\textperiodcentered\enspace VISUAL COMPUTING \enspace\textperiodcentered\enspace LAB ASSIGNMENT}\\[0.25em]
   {\fontsize{19}{22}\selectfont\bfseries\color{primary} From Pixels to Predictions}\\[0.15em]
   {\normalsize\color{muted} Measuring CNN Sensitivity to Classical Image Processing Operators}\\[0.35em]
   {\color{accent!30}\hrule height 0.5pt}\vspace{0.35em}
   {\renewcommand{\arraystretch}{1.08}%
-  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lll@{}}
-    {\scriptsize\bfseries\color{accent} CLASSIFIER} &
-    {\scriptsize\bfseries\color{accent} DATASET} &
-    {\scriptsize\bfseries\color{accent} SUBMISSION} \\
-    {\footnotesize ResNet-18 (\code{IMAGENET1K\_V1})} &
-    {\footnotesize 200 Imagenette Images} &
-    {\footnotesize\code{visual\_computing\_lab.ipynb}}
-  \end{tabular*}}
+    \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lll@{}}
+      {\scriptsize\bfseries\color{accent} CLASSIFIER} &
+      {\scriptsize\bfseries\color{accent} DATASET} &
+      {\scriptsize\bfseries\color{accent} SUBMISSION} \\
+      {\footnotesize ResNet-18 (\code{IMAGENET1K\_V1})} &
+      {\footnotesize 200 Imagenette Images} &
+      {\footnotesize\code{visual\_computing\_lab.ipynb}}
+    \end{tabular*}}
 \end{tcolorbox}
 
 \section{Overview and Experimental Setup}
 
-In this laboratory, you will implement six classical image processing operators---spatial sampling, intensity quantization, affine rotation, histogram equalization (with a histogram counter helper), Gaussian smoothing, and Laplacian sharpening---from first principles in PyTorch. You will then evaluate \textbf{your own implementations} as front-end transformations before a pre-trained convolutional neural network to measure how signal resolution, geometry, contrast, blur, and high-frequency emphasis change predictions and confidence.
+In this lab, you will implement six classical image processing operators: spatial sampling, intensity quantization, affine rotation, histogram equalization (with a histogram counter helper), Gaussian smoothing, and Laplacian sharpening. You will then evaluate \textbf{your own implementations} as transformations before a pre-trained convolutional neural network to measure how signal resolution, geometry, contrast, blur, and high-frequency emphasis change predictions and confidence.
 
 \subsection{Model and Dataset}
 \begin{itemize}
-  \item \textbf{Classifier:} ResNet-18 loaded with TorchVision's published \code{IMAGENET1K\_V1} weights. No training or fine-tuning is performed. Model outputs are restricted to the 10 Imagenette categories (\textit{tench, English springer, cassette player, chain saw, church, French horn, garbage truck, gas pump, golf ball, parachute}), and confidence is the conditional 10-class softmax probability (the model's raw scores converted into probabilities that sum to $1$ across those 10 classes). Because Imagenette is derived from ImageNet, this lab is a controlled sensitivity study rather than an independent generalization benchmark.
+  \item \textbf{Classifier:} ResNet-18 loaded with TorchVision's published \code{IMAGENET1K\_V1} weights. No training or fine-tuning is performed. Model outputs are restricted to the 10 Imagenette categories (\textit{tench, English springer, cassette player, chain saw, church, French horn, garbage truck, gas pump, golf ball, parachute}), and confidence is the conditional 10-class softmax probability (the model's raw scores converted into probabilities that sum to $1$ across those 10 classes).
   \item \textbf{Dataset:} One fixed, class-balanced subset of 200 images (20 per class) from \code{imagenette2-320/val}, recorded in \code{data/lab\_subset.json}. Each image is provided to your functions as a $224 \times 224$ RGB tensor with floating-point pixel intensities in $[0, 1]$, and every condition is evaluated on the exact same 200 images.
 \end{itemize}
 
@@ -205,26 +205,28 @@ In this laboratory, you will implement six classical image processing operators-
 This project uses \code{uv} for environment and package management. If \code{uv} is not installed yet, follow \href{https://docs.astral.sh/uv/getting-started/installation/}{the official \code{uv} installation guide} or run the standalone installer for your platform:
 \begin{itemize}[itemsep=0.12em,topsep=0.08em,parsep=0pt]
   \item \textbf{macOS / Linux:} {\small\code{curl -LsSf https://astral.sh/uv/install.sh | sh}}
-  \item \textbf{Windows (PowerShell):}\\[-0.15em]
-    {\small\code{powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"}}
+  \item \textbf{Windows (PowerShell):}
+        {\small\code{powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"}}
 \end{itemize}
 After installing \code{uv} (restart your terminal if needed), run these commands from the project root directory to synchronize the environment, cache the dataset and weights once, and open JupyterLab (select the project's \code{.venv} kernel):
+\vspace{0.5em}
 \begin{codeblock}
-uv sync --locked\\
-uv run --locked cnn-signal-sensitivity prepare\\
-uv run --locked jupyter lab
+  uv sync --locked\\
+  uv run --locked cnn-signal-sensitivity prepare\\
+  uv run --locked jupyter lab
 \end{codeblock}
+\vspace{0.5em}
 Open \code{notebooks/visual\_computing\_lab.ipynb}. Each exercise is followed immediately by a visual demonstration and a public unit check in \code{cnn\_signal\_sensitivity.checks}. The six operators are independent: you can implement and test them in any order, skip a function if you get stuck, and come back to it later (note that \code{histogram\_equalize} in D2 may optionally call \code{image\_histogram} from D1, and the full comparative evaluation in Section 4 runs once all operators are completed).
 
-\section{General Operator Contract}
+\section{General Operator Requirements}
 
 Unless noted otherwise, every function you implement must satisfy:
 \begin{enumerate}
-  \item \textbf{Input/output tensor contract:} Accept a batch \code{images} of shape $(B, 3, H, W)$ with floating-point RGB values in $[0, 1]$. Return a tensor with the exact same shape, \code{dtype}, and \code{device} (except \code{image\_histogram}, which returns \code{torch.long} counts of shape $(B, 256)$ on the input device).
+  \item \textbf{Input/output tensor requirements:} Accept a batch \code{images} of shape $(B, 3, H, W)$ with floating-point RGB values in $[0, 1]$. Return a tensor with the exact same shape, \code{dtype}, and \code{device} (except \code{image\_histogram}, which returns \code{torch.long} counts of shape $(B, 256)$ on the input device).
   \item \textbf{Immutability:} Never modify \code{images} in place (do not overwrite the input tensor directly); return a new tensor or a copy (\code{images.clone()}) when returning an unchanged image.
   \item \textbf{Vectorized PyTorch:} Use vectorized PyTorch tensor operations (computing across whole tensors at once rather than nested Python \code{for} loops over individual pixels; iterating over the batch dimension $B$ when needed for per-image operations is fine).
   \item \textbf{Parameter validation:} Raise \code{ValueError} for invalid arguments (e.g., non-positive or non-integer sampling factors, bit depths outside $[1, 8]$, non-finite angles, negative or non-finite filter strengths, or Gaussian kernel radius $\ge \min(H, W)$).
-  \item \textbf{Public checks:} Each exercise has its own unit check cell so you can verify that operator independently as soon as you write it. Passing the check confirms the core contract, though you should still consider edge cases such as non-square inputs, multi-image batches, and constant images.
+  \item \textbf{Public checks:} Each exercise has its own unit check cell so you can verify that operator independently as soon as you write it. Passing the check confirms the core implementation is correct, but you are still responsible for reading the specifications carefully and ensuring your operator satisfies all requirements.
 \end{enumerate}
 
 \clearpage
@@ -344,32 +346,32 @@ When $a = 0$, return a clone of \code{images}. Otherwise use one-pixel \textbf{r
 
 \clearpage
 \subsection{Helpful PyTorch Functions (Optional)}
-\begin{calloutbox}[breakable]
+% \begin{calloutbox}[breakable]
 You are encouraged to explore any vectorized PyTorch design that satisfies the specifications above. The functions below are optional building blocks you can check out---click any name to open its official PyTorch documentation, or use another approach if you prefer:
 \begin{itemize}\raggedright
   \item \textbf{Sampling \& shape manipulation:}
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.repeat_interleave.html}{torch.repeat\_interleave},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.repeat.html}{torch.Tensor.repeat},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.expand.html}{torch.Tensor.expand}.
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.repeat_interleave.html}{torch.repeat\_interleave},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.repeat.html}{torch.Tensor.repeat},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.Tensor.expand.html}{torch.Tensor.expand}.
   \item \textbf{Rounding \& value bounds:}
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.round.html}{torch.round},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.clamp.html}{torch.clamp},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.floor.html}{torch.floor},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.ceil.html}{torch.ceil}.
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.round.html}{torch.round},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.clamp.html}{torch.clamp},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.floor.html}{torch.floor},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.ceil.html}{torch.ceil}.
   \item \textbf{Coordinate grids \& warping:}
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.arange.html}{torch.arange},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.meshgrid.html}{torch.meshgrid},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html}{torch.nn.functional.grid\_sample}.
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.arange.html}{torch.arange},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.meshgrid.html}{torch.meshgrid},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html}{torch.nn.functional.grid\_sample}.
   \item \textbf{Histograms \& cumulative counts:}
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.bincount.html}{torch.bincount},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.histc.html}{torch.histc},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.cumsum.html}{torch.cumsum}.
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.bincount.html}{torch.bincount},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.histc.html}{torch.histc},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.cumsum.html}{torch.cumsum}.
   \item \textbf{Padding \& spatial filtering:}
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.pad.html}{torch.nn.functional.pad},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.conv2d.html}{torch.nn.functional.conv2d},
-    \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.unfold.html}{torch.nn.functional.unfold}.
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.pad.html}{torch.nn.functional.pad},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.conv2d.html}{torch.nn.functional.conv2d},
+        \codelink{https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.unfold.html}{torch.nn.functional.unfold}.
 \end{itemize}
-\end{calloutbox}
+% \end{calloutbox}
 
 \needspace{12\baselineskip}
 \section{Evaluation, Analysis, and Discussion}
@@ -385,15 +387,15 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
   \begin{tabularx}{\linewidth}{>{\RaggedRight\arraybackslash}p{0.23\linewidth}>{\RaggedRight\arraybackslash}p{0.25\linewidth}>{\RaggedRight\arraybackslash}X}
     \toprule
     \rowcolor{bannerbg}
-    \textbf{\color{primary}Family} & \textbf{\color{primary}Property Modified} & \textbf{\color{primary}Evaluated Conditions} \\
+    \textbf{\color{primary}Family} & \textbf{\color{primary}Property Modified} & \textbf{\color{primary}Evaluated Conditions}                                                  \\
     \midrule
-    Baseline & Unmodified input & \code{clean} \\
-    Sampling & Spatial resolution & Factor $s \in \{1, 2, 4, 8, 16\}$ \\
-    Quantization & Intensity resolution & Bit depth $b \in \{8, 6, 4, 3, 2, 1\}$ \\
-    Affine rotation & Spatial orientation \& fill & Angle $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$ \\
-    Histogram equalization & Contrast \& color removal & \code{grayscale} control, \code{equalized} (256 bins) \\
-    Gaussian smoothing & Low-pass spatial filtering & $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels \\
-    Laplacian sharpening & High-frequency emphasis & Amount $a \in \{0, 0.25, 0.5, 1, 2\}$ \\
+    Baseline                       & Unmodified input                          & \code{clean}                                                                                  \\
+    Sampling                       & Spatial resolution                        & Factor $s \in \{1, 2, 4, 8, 16\}$                                                             \\
+    Quantization                   & Intensity resolution                      & Bit depth $b \in \{8, 6, 4, 3, 2, 1\}$                                                        \\
+    Affine rotation                & Spatial orientation \& fill               & Angle $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$ \\
+    Histogram equalization         & Contrast \& color removal                 & \code{grayscale} control, \code{equalized} (256 bins)                                         \\
+    Gaussian smoothing             & Low-pass spatial filtering                & $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels                                                       \\
+    Laplacian sharpening           & High-frequency emphasis                   & Amount $a \in \{0, 0.25, 0.5, 1, 2\}$                                                         \\
     \bottomrule
   \end{tabularx}
   \caption{The 31 conditions evaluated in Section 4.}
@@ -413,27 +415,27 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
 \begin{enumerate}
   \item \textbf{Before running Section 4:} After inspecting your visual demonstrations in Section 3, record your prediction in the notebook stating which operations and severities will alter ResNet-18 predictions most and why.
   \item \textbf{After running Section 4:} Inspect the galleries (\code{examples.png},
-    \code{filter\_examples.png}), accuracy curves (\code{accuracy.png}), and results table, then write
-    a concise analysis addressing:
-    \begin{itemize}
-      \item How spatial subsampling and intensity quantization affect predictions differently (compare accuracy drops, confidence, and pixel MSE).
-      \item How rotation, bilinear interpolation, border gray fill, and corner cropping affect visual evidence and accuracy.
-      \item Whether histogram equalization improves or degrades classification relative to the \code{grayscale} control.
-      \item How Gaussian smoothing and Laplacian sharpening affect fine texture, prediction confidence, and accuracy.
-      \item Which findings matched or surprised your expectations, supported by specific numbers and image examples, along with scope limitations (fixed 200-image sample, unmatched parameter severities across families, single pre-trained model).
-    \end{itemize}
+        \code{filter\_examples.png}), accuracy curves (\code{accuracy.png}), and results table, then write
+        a concise analysis addressing:
+        \begin{itemize}
+          \item How spatial subsampling and intensity quantization affect predictions differently (compare accuracy drops, confidence, and pixel MSE).
+          \item How rotation, bilinear interpolation, border gray fill, and corner cropping affect visual evidence and accuracy.
+          \item Whether histogram equalization improves or degrades classification relative to the \code{grayscale} control.
+          \item How Gaussian smoothing and Laplacian sharpening affect fine texture, prediction confidence, and accuracy.
+          \item Which findings matched or surprised your expectations, supported by specific numbers and image examples, along with scope limitations (fixed 200-image sample, unmatched parameter severities across families, single pre-trained model).
+        \end{itemize}
 \end{enumerate}
 
 \needspace{10\baselineskip}
 \section{Submission and Grading}
 
-\begin{calloutbox}
-  Before submitting, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom and all figures, tables, and written responses are saved inside the notebook.
-  \begin{itemize}
-    \item \textbf{Submit:} Only the completed and executed notebook file (\code{notebooks/visual\_computing\_lab.ipynb}).
-    \item \textbf{Do not submit:} \code{.venv/}, \code{outputs/}, \code{data/}, downloaded Imagenette image archives, cached model weights, or any other project files.
-  \end{itemize}
-\end{calloutbox}
+% \begin{calloutbox}
+Before submitting, select \textbf{Kernel $\to$ Restart Kernel and Run All Cells} so every cell executes cleanly from top to bottom and all figures, tables, and written responses are saved inside the notebook.
+\begin{itemize}
+  \item \textbf{Submit:} Only the completed and executed notebook file (\code{notebooks/visual\_computing\_lab.ipynb}).
+  \item \textbf{Do not submit:} \code{.venv/}, \code{outputs/}, \code{data/}, downloaded Imagenette image archives, cached model weights, or any other project files.
+\end{itemize}
+% \end{calloutbox}
 
 \begin{table}[H]
   \centering\small
@@ -444,12 +446,12 @@ Section 4 of the notebook evaluates all 31 conditions (the clean RGB baseline, 2
   \begin{tabular}{lr}
     \toprule
     \rowcolor{bannerbg}
-    \textbf{\color{primary}Component} & \textbf{\color{primary}Weight} \\
+    \textbf{\color{primary}Component}                   & \textbf{\color{primary}Weight} \\
     \midrule
-    Operator correctness and mathematical understanding & 40\% \\
-    Clear quantitative and visual comparisons & 25\% \\
-    Explanation of results and limitations & 25\% \\
-    Reproducible, readable notebook & 10\% \\
+    Operator correctness and mathematical understanding & 40\%                           \\
+    Clear quantitative and visual comparisons           & 25\%                           \\
+    Explanation of results and limitations              & 25\%                           \\
+    Reproducible, readable notebook                     & 10\%                           \\
     \bottomrule
   \end{tabular}
   \caption{Grading breakdown.}
