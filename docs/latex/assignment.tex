@@ -8,13 +8,19 @@
 \DisableLigatures{encoding = *, family = tt*}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{caption}
 \usepackage{enumitem}
+\usepackage{float}
+\usepackage{graphicx}
 \usepackage{xcolor}
 \usepackage{parskip}
 \usepackage{titlesec}
 \usepackage{upquote}
 \usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
+
+\captionsetup{font=small,labelfont=bf}
+\graphicspath{{../typst/figures/}{docs/typst/figures/}}
 
 \definecolor{accent}{HTML}{137C8B}
 \definecolor{muted}{HTML}{4A5568}
@@ -91,12 +97,24 @@ Subsample spatially by keeping every $s$-th row and column (\code{images[:, :, :
 
 \textbf{Design note:} Anti-aliasing smoothing before subsampling is intentionally omitted so you can observe aliasing and high-frequency detail loss directly. \textbf{Evaluated settings:} $s \in \{1, 2, 4, 8, 16\}$.
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{demo_sample_image.png}
+  \caption{Input image and expected \code{sample\_image} outputs for factors $s \in \{2, 4, 8, 16\}$.}
+\end{figure}
+
 \subsection{B. Intensity Quantization (\code{quantize})}
 Reduce per-channel intensity precision to $2^b$ uniformly spaced levels in $[0, 1]$ for integer bit depth $b \in \{1, 2, \dots, 8\}$:
 \[
   Q_b(x) = \frac{\mathrm{round}\!\left((2^b - 1)\,x\right)}{2^b - 1}.
 \]
 This endpoint-preserving formula keeps $0$ and $1$ exact and preserves standard 8-bit image samples when $b = 8$. \textbf{Evaluated settings:} $b \in \{8, 6, 4, 3, 2, 1\}$ bits/channel.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{demo_quantize.png}
+  \caption{Input image and expected \code{quantize} outputs for $b \in \{6, 4, 2, 1\}$ bits per channel.}
+\end{figure}
 
 \subsection{C. Affine Geometric Transformation (\code{affine\_rotation})}
 Rotate every image in the batch counterclockwise by \code{angle} $\theta$ (in degrees) about its center using \textbf{inverse coordinate mapping} and bilinear interpolation, keeping the $(H, W)$ canvas fixed and filling outside regions with neutral gray ($0.5$). When $\theta = 0$, return a clone of \code{images}. Do not replace this exercise with a ready-made rotation helper.
@@ -114,8 +132,20 @@ Convert $(x_s, y_s)$ to normalized \code{F.grid\_sample} coordinates in $[-1, 1]
 \]
 To obtain the gray ($0.5$) fill outside the image boundary while using \code{padding\_mode="zeros"}, sample \code{images - 0.5} with \code{mode="bilinear"} and \code{align\_corners=False}, add \code{0.5} back, and clamp to $[0, 1]$. \textbf{Evaluated settings:} $\theta \in \{-45^\circ, -30^\circ, -15^\circ, 0^\circ, 15^\circ, 30^\circ, 45^\circ\}$.
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{demo_affine_rotation.png}
+  \caption{Input image and expected \code{affine\_rotation} outputs for $\theta \in \{-45^\circ, -20^\circ, +20^\circ, +45^\circ\}$.}
+\end{figure}
+
 \subsection{D1. Image Histogram (\code{image\_histogram})}
 Compute the arithmetic-mean grayscale intensity $I = \frac{1}{3}(R + G + B)$ for each pixel, and assign bin indices $k = \mathrm{round}(255\,I) \in \{0, 1, \dots, 255\}$. Return a \code{torch.long} tensor of shape $(B, 256)$ on the input device where row $i$ contains the pixel counts for image $i$ (each row sums to $H \times W$). Looping over the batch dimension $B$ with 1-D \code{torch.bincount(..., minlength=256)} is fine. You will use this function to plot input, equalized, and twice-equalized histograms on shared axes.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\linewidth]{demo_image_histogram.png}
+  \caption{Input RGB image, mean grayscale intensity $I = (R+G+B)/3$, and expected 256-bin histogram counts from \code{image\_histogram}.}
+\end{figure}
 
 \subsection{D2. Histogram Equalization (\code{histogram\_equalize})}
 Redistribute grayscale intensities independently for each image using its 256-bin histogram (you may call \code{image\_histogram}) and cumulative distribution $\mathrm{CDF}(k) = \sum_{j=0}^{k} h(j)$. Let $\mathrm{CDF}_{\min}$ be the cumulative count of the first occupied bin (smallest $k$ with $h(k) > 0$). If all pixels occupy a single bin ($\mathrm{CDF}(255) - \mathrm{CDF}_{\min} = 0$), preserve the constant grayscale intensity unchanged; otherwise map each pixel's bin $k$ through
@@ -127,6 +157,13 @@ where $\widetilde{\mathrm{CDF}} = \mathrm{CDF}/(HW)$ is the normalized CDF, clam
 
 \textbf{Experimental control:} Because equalization removes color as well as changing contrast, Section 4 evaluates both \code{grayscale} (arithmetic RGB mean replicated to 3 channels) and \code{equalized} to isolate contrast redistribution from color removal.
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.86\linewidth]{demo_histogram_equalize.png}\\[4pt]
+  \includegraphics[width=0.94\linewidth]{histogram_comparison.png}
+  \caption{Top: input image, expected \code{histogram\_equalize} output, and twice-equalized output. Bottom: corresponding 256-bin intensity histograms.}
+\end{figure}
+
 \subsection{E. Gaussian Smoothing (\code{gaussian\_smooth})}
 Attenuate high-frequency detail using an isotropic 2-D Gaussian kernel with standard deviation \code{sigma} $\sigma \ge 0$ (in pixels). When $\sigma = 0$, return a clone of \code{images}. Otherwise set kernel radius $r = \lceil 3\sigma \rceil$ (raising \code{ValueError} if $r \ge \min(H, W)$), evaluate
 \[
@@ -136,6 +173,12 @@ and normalize so $\sum_{x, y} K(x, y) = 1$. Pad borders via
 \code{F.pad(images, (r, r, r, r), mode="reflect")} and filter each RGB channel independently
 with grouped \code{F.conv2d(..., groups=channels)}, clamping to $[0, 1]$. \textbf{Evaluated settings:}
 $\sigma \in \{0, 0.5, 1, 2, 4\}$ pixels.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{demo_gaussian_smooth.png}
+  \caption{Input image and expected \code{gaussian\_smooth} outputs for $\sigma \in \{0.5, 1, 2, 4\}$ pixels.}
+\end{figure}
 
 \subsection{F. Laplacian Sharpening (\code{laplacian\_sharpen})}
 Emphasize rapid intensity transitions using the discrete four-neighbor Laplacian kernel:
@@ -147,6 +190,12 @@ For nonnegative sharpening strength \code{amount} $a \ge 0$ ($a = 0$ returns a c
   g = \mathrm{clamp}\!\left(f - a\,\nabla^2 f,\, 0,\, 1\right).
 \]
 Keep the signed response before subtraction (do not take $|\nabla^2 f|$) and clip only after subtracting from the original image. \textbf{Evaluated settings:} $a \in \{0, 0.25, 0.5, 1, 2\}$.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{demo_laplacian_sharpen.png}
+  \caption{Input image and expected \code{laplacian\_sharpen} outputs for sharpening amounts $a \in \{0.25, 0.5, 1, 2\}$.}
+\end{figure}
 
 \section{Evaluation, Analysis, and Discussion}
 
